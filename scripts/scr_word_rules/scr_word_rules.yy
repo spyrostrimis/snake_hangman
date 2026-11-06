@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_word_rules",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_word_rules",
+  "parent":{
+    "name":"snake_hangman",
+    "path":"snake_hangman.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
