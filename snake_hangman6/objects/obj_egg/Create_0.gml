@@ -11,3 +11,9 @@ on_collect = function(_by)
     _g.say("GULP! +2 HEARTS", 90, _p);
     if (instance_exists(_by)) _by.gulp_t = 45;
 };
+client_fx = function(_by)
+{
+    obj_game.play_sfx(obj_game.sfx.gulp);
+    obj_game.burst(x, y, make_colour_rgb(255, 240, 200), 10);
+    if (instance_exists(_by)) _by.gulp_t = 45;
+};

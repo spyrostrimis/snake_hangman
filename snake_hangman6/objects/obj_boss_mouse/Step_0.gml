@@ -1,3 +1,5 @@
+// Online, the joiner's creatures copy the host's instead of thinking.
+if (net_mirror()) { mirror_step(); exit; }
 event_inherited();
 if (obj_game.state != "play" || !active) exit;
 

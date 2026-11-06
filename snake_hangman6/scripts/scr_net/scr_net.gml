@@ -125,3 +125,81 @@ function net_is_private(_ip)
     }
     return false;
 }
+
+// ---------- Online game (step 3) ----------
+
+/// True on the joiner's PC during an online game: its creatures, bosses and projectiles
+/// copy the host's instead of moving by themselves.
+function net_mirror()
+{
+    var _g = obj_game;
+    return _g.net_mode == "client" && _g.state != "online" && _g.state != "title" && _g.state != "credits";
+}
+
+/// Writes snake _inst (or "no snake") into buffer _b: everything needed to draw it.
+function net_write_snake(_b, _inst)
+{
+    if (!instance_exists(_inst)) { buffer_write(_b, buffer_u8, 0); return; }
+    buffer_write(_b, buffer_u8, 1);
+    with (_inst)
+    {
+        buffer_write(_b, buffer_f32, x);
+        buffer_write(_b, buffer_f32, y);
+        buffer_write(_b, buffer_f32, vx);
+        buffer_write(_b, buffer_f32, vy);
+        buffer_write(_b, buffer_s8, facing);
+        buffer_write(_b, buffer_u8, (ball ? 1 : 0) | (copter ? 2 : 0) | (on_ground ? 4 : 0) | (hidden ? 8 : 0));
+        buffer_write(_b, buffer_s16, round(ball_angle) mod 360);
+        buffer_write(_b, buffer_u8, clamp(boost_t, 0, 255));
+        buffer_write(_b, buffer_u8, clamp(round(tongue_len), 0, 255));
+        buffer_write(_b, buffer_u8, floor(image_index));
+        buffer_write(_b, buffer_u8, clamp(invuln, 0, 255));
+        buffer_write(_b, buffer_u8, body_len);
+        buffer_write(_b, buffer_u8, clamp(gulp_t, 0, 255));
+    }
+}
+
+/// Reads what net_write_snake wrote: a struct, or undefined for "no snake".
+function net_read_snake(_b)
+{
+    if (buffer_read(_b, buffer_u8) == 0) return undefined;
+    var _s = {};
+    _s.x = buffer_read(_b, buffer_f32);
+    _s.y = buffer_read(_b, buffer_f32);
+    _s.vx = buffer_read(_b, buffer_f32);
+    _s.vy = buffer_read(_b, buffer_f32);
+    _s.facing = buffer_read(_b, buffer_s8);
+    _s.flags = buffer_read(_b, buffer_u8);
+    _s.ang = buffer_read(_b, buffer_s16);
+    _s.boost = buffer_read(_b, buffer_u8);
+    _s.tongue = buffer_read(_b, buffer_u8);
+    _s.img = buffer_read(_b, buffer_u8);
+    _s.invuln = buffer_read(_b, buffer_u8);
+    _s.body = buffer_read(_b, buffer_u8);
+    _s.gulp = buffer_read(_b, buffer_u8);
+    return _s;
+}
+
+/// Puts a snake read by net_read_snake onto remote snake _inst.
+function net_apply_snake(_inst, _s)
+{
+    with (_inst)
+    {
+        net_tx = _s.x;
+        net_ty = _s.y;
+        vx = _s.vx;
+        vy = _s.vy;
+        facing = (_s.facing == 0) ? 1 : _s.facing;
+        ball = (_s.flags & 1) != 0;
+        copter = (_s.flags & 2) != 0;
+        on_ground = (_s.flags & 4) != 0;
+        hidden = (_s.flags & 8) != 0;
+        ball_angle = _s.ang;
+        boost_t = _s.boost;
+        tongue_len = _s.tongue;
+        image_index = _s.img;
+        invuln = _s.invuln;
+        body_len = clamp(_s.body, 1, 14);
+        gulp_t = _s.gulp;
+    }
+}

@@ -3,9 +3,13 @@
 /// The keys depend on the player: see read_controls() in scr_util.
 
 var _g = obj_game;
+// Online: the other PC's snake only follows what that PC reports.
+if (remote) { mirror_step(); exit; }
 if (_g.state != "play") exit;
+if (hidden) exit;
 
-var _in = read_controls(pid, _g.players_n);
+// Online, each PC plays one snake with the one-player keys (or any gamepad).
+var _in = read_controls(pid, (_g.net_mode != "") ? 1 : _g.players_n);
 var _left  = _in.left;
 var _right = _in.right;
 var _down  = _in.down;
@@ -168,7 +172,12 @@ if (tongue_t > 0)
         with (obj_enemy) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < hh + 4) kill(1, other.id);
         with (obj_pickup) if (!grabbed && point_segment_distance(x, y, _mx, _my, _tip, _my) < 16) { grabbed = true; grabber = other.id; _g.play_sfx(_g.sfx.slurp); }
         // The tongue also swats a boss's cheese and feathers out of the air.
-        with (obj_hazard) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < 12) { _g.burst(x, y, c_white, 6); instance_destroy(); }
+        with (obj_hazard) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < 12)
+        {
+            _g.burst(x, y, c_white, 6);
+            if (_g.net_mode == "client") { _g.net_gone[$ string(net_id)] = true; _g.net_event({ t: "hazard", i: net_id }); }
+            instance_destroy();
+        }
     }
 }
 
@@ -223,6 +232,7 @@ with (obj_flag)
         other.stats.checkpoint_y = y - 12;
         _g.play_sfx(_g.sfx.flag);
         _g.say("CHECKPOINT!", 90, other.stats);
+        if (_g.net_mode == "client") _g.net_event({ t: "flag", x: x, y: y - 12 });
     }
 }
 with (obj_door)

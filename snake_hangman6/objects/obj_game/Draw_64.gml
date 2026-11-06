@@ -129,9 +129,19 @@ switch (state)
                 if (_n.detail != "") body_text(320, 186, _n.detail, make_colour_rgb(255, 230, 140), fa_center);
                 if (_n.state == "connected")
                 {
-                    hud_text(320, 206, "PING " + ((_n.ping_ms < 0) ? "..." : string(round(_n.ping_ms)) + " MS"), 0.5, fa_center, make_colour_rgb(140, 255, 140));
-                    body_text(320, 236, "Linked over " + _n.link + " with " + _n.peer_ip + ":" + string(_n.peer_port), c_white, fa_center);
-                    body_text(320, 256, "Space: wave to your friend    You waved " + string(_n.waves_out) + "    Your friend waved " + string(_n.waves_in), _gold, fa_center);
+                    var _ping = (_n.ping_ms < 0) ? "..." : string(round(_n.ping_ms)) + " ms";
+                    body_text(320, 186, "Ping " + _ping + "    linked over " + _n.link + " with " + _n.peer_ip + ":" + string(_n.peer_port), make_colour_rgb(140, 255, 140), fa_center);
+                    body_text(320, 204, "Space: wave to your friend    You waved " + string(_n.waves_out) + "    Your friend waved " + string(_n.waves_in), _gold, fa_center);
+                    // The lobby: the host picks the snakes and starts the game.
+                    var _mine = (_n.role == "host") ? snakes[character] : snakes[1 - net_lobby_c];
+                    var _yours = (_n.role == "host") ? snakes[1 - character] : snakes[net_lobby_c];
+                    body_text(320, 222, "You play the " + string_lower(_mine.name) + ", your friend the " + string_lower(_yours.name) + ".", _mine.colour, fa_center);
+                    if (_n.role == "host")
+                    {
+                        if (_blink) hud_text(320, 244, "ENTER: START THE GAME", 0.45, fa_center, make_colour_rgb(160, 255, 140));
+                        body_text(320, 266, "Left / Right: swap snakes    1-" + string(min(array_length(levels), 9)) + ": start at that level", c_white, fa_center);
+                    }
+                    else body_text(320, 250, "Waiting for your friend to start the game...", make_colour_rgb(160, 255, 140), fa_center);
                 }
                 var _me = (_n.pub_ip != "") ? _n.pub_ip + ":" + string(_n.pub_port) : "unknown";
                 body_text(320, 296, "Your internet address: " + _me + "    Local port: " + string(_n.lport), make_colour_rgb(170, 190, 230), fa_center);
@@ -159,8 +169,10 @@ switch (state)
         // One HUD per snake, each in its own part of the screen (the whole of it when alone).
         for (var _k = 0; _k < array_length(pl); _k++)
         {
+            // Online, only this PC's snake has a HUD.
+            if (net_mode != "" && _k != my_pid) continue;
             var _p = pl[_k];
-            var _oy = _k * _vh;
+            var _oy = (net_mode != "") ? 0 : _k * _vh;
 
             // Score, top left, seven digits like the old games.
             var _sc = string(_p.score_now);
@@ -274,8 +286,25 @@ switch (state)
                 var _label = (array_length(pl) == 1) ? "BONUS " : string_replace(_p.skin.name, " SNAKE", "") + " BONUS ";
                 hud_text(320, 200 + _k * 22, _label + string(_p.shown), 0.5, fa_center, (array_length(pl) == 1) ? c_white : _p.skin.colour);
             }
-            if (_done && _blink) hud_text(320, 254, "PRESS ENTER", 0.5, fa_center);
+            if (net_mode == "client") body_text(320, 256, "Waiting for your friend to carry on...", c_white, fa_center);
+            else if (_done && _blink) hud_text(320, 254, "PRESS ENTER", 0.5, fa_center);
         }
+        // Online: P / Esc asks before leaving.
+        if (net_quit_ask && state == "play")
+        {
+            draw_set_colour(c_black);
+            draw_set_alpha(0.55);
+            draw_rectangle(0, 120, 640, 230, false);
+            draw_set_alpha(1);
+            hud_text(320, 136, "LEAVE THE ONLINE GAME?", 0.6, fa_center, make_colour_rgb(255, 200, 80));
+            body_text(320, 184, "Enter: leave    P / Esc: keep playing", c_white, fa_center);
+        }
+        break;
+
+    case "netlost":
+        hud_text(320, 130, "CONNECTION LOST", 0.9, fa_center, make_colour_rgb(255, 120, 130));
+        body_text(320, 186, "Nothing more came from your friend's game.", c_white, fa_center);
+        if (_blink) hud_text(320, 250, "PRESS ENTER", 0.5, fa_center);
         break;
 
     case "gameover":

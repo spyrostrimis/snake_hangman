@@ -10,3 +10,8 @@ on_collect = function(_by)
     _g.play_sfx(_g.sfx.gem);
     _g.burst(x, y, make_colour_rgb(255, 80, 120), 6);
 };
+client_fx = function(_by)
+{
+    obj_game.play_sfx(obj_game.sfx.gem);
+    obj_game.burst(x, y, make_colour_rgb(255, 80, 120), 6);
+};

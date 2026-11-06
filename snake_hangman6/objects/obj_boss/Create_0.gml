@@ -21,10 +21,17 @@ kill = function(_dmg = 1, _by = noone)
 {
     if (!active || hurt_t > 0) return;
     var _g = obj_game;
-    hp -= _dmg;
     hurt_t = 50;
     _g.play_sfx(_g.sfx.boss_hit);
     _g.burst(x, y - 10, make_colour_rgb(255, 230, 90), 10);
+    // Online, the joiner's hit goes to the host, which keeps the boss's health.
+    if (_g.net_mode == "client") { _g.net_event({ t: "hit", i: net_id, d: _dmg }); return; }
+    hp -= _dmg;
+    if (_g.net_mode == "host")
+    {
+        var _st = stats_of(_by);
+        _g.net_event({ t: "bhit", i: net_id, by: is_undefined(_st) ? 0 : _st.pid });
+    }
     if (hp <= 0)
     {
         _g.burst(x, y - 10, make_colour_rgb(255, 120, 80), 40);
@@ -33,7 +40,9 @@ kill = function(_dmg = 1, _by = noone)
         // The letter appears at the snake's head height, easy to grab.
         var _l = instance_create_layer(x, y + 12, "Instances", obj_letter);
         _l.ch = ch;
+        _g.net_spawned(_l, "letter");
         _g.boss_defeated(boss_name);
+        if (_g.net_mode == "host") _g.net_event({ t: "kill", i: net_id });
         instance_destroy();
     }
 };
@@ -46,6 +55,7 @@ shoot = function(_spr, _x, _y, _vx, _vy, _grav)
     _h.vx = _vx;
     _h.vy = _vy;
     _h.grav = _grav;
+    _h.net_id = obj_game.net_next_id++;
     return _h;
 };
 

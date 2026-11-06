@@ -16,6 +16,10 @@ copter = false;         // tail-spin glide (green snake)
 // pid (0 or 1) is set by instance_create_layer before this runs.
 stats = obj_game.pl[pid];   // this snake's score, lives, hearts, misses and checkpoint
 skin = stats.skin;          // sprites and power of this snake
+if (!variable_instance_exists(id, "remote")) remote = false;   // online: the other PC's snake
+hidden = false;             // online joiner: fell in a pit, waiting for the host's "come back"
+net_tx = x;                 // remote snake: where the other PC last said it was
+net_ty = y;
 air_jump_ready = false; // red snake: the second jump is still available in this jump
 boost_t = 0;            // frames left in a boost (C); only a boost hurts creatures
 boost_cd = 0;           // short wait after a boost before the next one
@@ -99,21 +103,20 @@ take_hit = function(_dir = -facing)
     obj_game.hurt_player(id);
 };
 
-/// Breaks the cracked block at tile (_tx, _ty) and re-tiles its neighbours.
+/// Breaks the cracked block at tile (_tx, _ty) (see obj_game.smash_tile). Online, the
+/// joiner tells the host, which tells nobody else: the host's own smashes go the other way.
 smash = function(_tx, _ty)
 {
     var _g = obj_game;
-    _g.grid[_tx][_ty] = T_EMPTY;
-    for (var _ox = -1; _ox <= 1; _ox++)
-    {
-        for (var _oy = -1; _oy <= 1; _oy++)
-        {
-            var _nx = _tx + _ox;
-            var _ny = _ty + _oy;
-            if (_nx >= 0 && _ny >= 0 && _nx < _g.lvl_w && _ny < _g.lvl_h) tilemap_set(_g.tilemap, _g.auto_tile(_nx, _ny), _nx, _ny);
-        }
-    }
-    part_particles_create(_g.ps, _tx * TILE + 16, _ty * TILE + 16, _g.pt_rock, 14);
-    _g.play_sfx(_g.sfx.smash);
-    _g.add_score(50, _tx * TILE + 16, _ty * TILE, stats);
+    if (grid_type(_tx, _ty) != T_CRACK) return;
+    _g.smash_tile(_tx, _ty, stats);
+    if (_g.net_mode == "client") _g.net_event({ t: "smash", x: _tx, y: _ty });
+};
+
+/// Online: the other PC's snake glides to where that PC last said it was.
+mirror_step = function()
+{
+    if (point_distance(x, y, net_tx, net_ty) > 160) { x = net_tx; y = net_ty; reset_body(); }
+    else { x = lerp(x, net_tx, 0.45); y = lerp(y, net_ty, 0.45); }
+    update_body();
 };

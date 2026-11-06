@@ -115,15 +115,43 @@ switch (state)
                 break;
 
             case "room":
+                // The lobby: once connected, the host picks the snakes and starts the game.
+                if (net.state == "connected" && net_mode == "") net_begin(net.role);
+                if (net.state != "connected" && net_mode != "") net_end();
                 if (keyboard_check_pressed(vk_space) && net.state == "connected") { play_sfx(sfx.jump); net.send_wave(); }
-                if (_esc) { play_sfx(sfx.select); net.stop(); online_mode = "menu"; }
+                if (net_mode == "host")
+                {
+                    if (keyboard_check_pressed(vk_left) || keyboard_check_pressed(vk_right)) { character = 1 - character; play_sfx(sfx.select); }
+                    if (keyboard_check_pressed(vk_enter)) { play_sfx(sfx.select); players_n = 2; new_game(0); }
+                    else
+                    {
+                        for (var _i = 0; _i < min(array_length(levels), 9); _i++)
+                        {
+                            if (keyboard_check_pressed(ord(string(_i + 1))) || keyboard_check_pressed(vk_numpad1 + _i))
+                            {
+                                play_sfx(sfx.select);
+                                players_n = 2;
+                                new_game(_i);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (_esc) { play_sfx(sfx.select); net.stop(); net_end(); online_mode = "menu"; }
                 break;
         }
         break;
 
     case "play":
         level_time++;
-        if (_pause)
+        if (net_mode != "")
+        {
+            // Online there is no pause: P / Esc asks whether to leave the game.
+            if (_pause) net_quit_ask = !net_quit_ask;
+            else if (net_quit_ask && keyboard_check_pressed(vk_enter)) net_leave();
+            else if (net_mode == "host" && keyboard_check_pressed(ord("N"))) skip_level();
+        }
+        else if (_pause)
         {
             state = "paused";
             audio_pause_all();
@@ -141,6 +169,8 @@ switch (state)
         break;
 
     case "clear":
+        // Online, the joiner sees the host's tally and waits for the host to carry on.
+        if (net_mode == "client") break;
         // Count each snake's bonus up like the old tally screens.
         var _counting = false;
         for (var _k = 0; _k < array_length(pl); _k++)
@@ -175,7 +205,13 @@ switch (state)
         if (_enter)
         {
             load_level(0, false);
-            state = "title";
+            // Online, back to the room, still connected, for another go.
+            if (net_mode != "") { state = "online"; online_mode = "room"; }
+            else state = "title";
         }
+        break;
+
+    case "netlost":
+        if (_enter) net_leave();
         break;
 }

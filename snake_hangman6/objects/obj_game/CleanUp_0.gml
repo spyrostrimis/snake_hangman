@@ -5,3 +5,4 @@ part_type_destroy(pt_spark);
 part_type_destroy(pt_dust);
 part_type_destroy(pt_rock);
 part_system_destroy(ps);
+buffer_delete(net_buf);

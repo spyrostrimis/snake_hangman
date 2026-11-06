@@ -7,3 +7,6 @@ sway = false;
 image_speed = 0;
 image_angle = random(360);
 t = random(10);
+net_id = -1;            // online: the same number on both PCs
+net_tx = x;             // joiner: where the host says it is
+net_ty = y;

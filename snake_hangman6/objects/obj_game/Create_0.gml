@@ -190,6 +190,8 @@ say = function(_text, _frames = 150, _p = undefined)
     {
         if (is_undefined(_p) || pl[_k] == _p) array_push(pl[_k].messages, { text: _text, life: _frames });
     }
+    // Online, the joiner's messages travel to its screen.
+    if (net_mode == "host" && (is_undefined(_p) || _p.pid == 1)) net_event({ t: "say", m: _text, f: _frames });
 };
 
 clear_messages = function()
@@ -330,24 +332,28 @@ load_level = function(_i, _with_player)
         var _s = lvl.spawns[_k];
         var _px = _s.tx * TILE + 16;
         var _py = _s.ty * TILE + 16;
+        var _inst = noone;
         switch (_s.kind)
         {
             case "start":  start_x = _px; start_y = _s.ty * TILE + 32 - 12; break;
-            case "letter": array_push(_letter_spots, instance_create_layer(_px, _py, "Instances", obj_letter)); break;
-            case "gem":    instance_create_layer(_px, _py, "Instances", obj_gem); break;
-            case "egg":    instance_create_layer(_px, _py, "Instances", obj_egg); break;
+            case "letter": _inst = instance_create_layer(_px, _py, "Instances", obj_letter); array_push(_letter_spots, _inst); break;
+            case "gem":    _inst = instance_create_layer(_px, _py, "Instances", obj_gem); break;
+            case "egg":    _inst = instance_create_layer(_px, _py, "Instances", obj_egg); break;
             case "boss_mouse":
             case "boss_hen":
                 boss = instance_create_layer(_px, _s.ty * TILE + 32 - 26, "Instances", (_s.kind == "boss_mouse") ? obj_boss_mouse : obj_boss_hen);
                 boss.arena_x1 = lvl.arena[0] * TILE + 32;
                 boss.arena_x2 = lvl.arena[1] * TILE;
+                _inst = boss;
                 break;
-            case "bug":    instance_create_layer(_px, _s.ty * TILE + 32 - 12, "Instances", obj_bug); break;
-            case "bee":    instance_create_layer(_px, _py, "Instances", obj_bee); break;
+            case "bug":    _inst = instance_create_layer(_px, _s.ty * TILE + 32 - 12, "Instances", obj_bug); break;
+            case "bee":    _inst = instance_create_layer(_px, _py, "Instances", obj_bee); break;
             case "spring": instance_create_layer(_px, _s.ty * TILE + 32, "Instances", obj_spring); break;
             case "flag":   instance_create_layer(_px, _s.ty * TILE + 32, "Instances", obj_flag); break;
             case "door":   instance_create_layer(_px, _s.ty * TILE + 32, "Instances", obj_door); break;
         }
+        // Online, both PCs build the same level, so the plan's index names each thing.
+        if (_inst != noone) _inst.net_id = _k;
     }
 
     // Letters: every letter of the word once, the other spots get different wrong letters.
@@ -394,7 +400,8 @@ load_level = function(_i, _with_player)
             _p.miss_letters = "";
             _p.checkpoint_x = start_x - _k * 26;
             _p.checkpoint_y = start_y;
-            _p.inst = _p.out ? noone : instance_create_layer(_p.checkpoint_x, start_y, "Instances", obj_player, { pid: _k });
+            // Online, the other PC's snake is a "remote" copy that only shows where it is.
+            _p.inst = _p.out ? noone : instance_create_layer(_p.checkpoint_x, start_y, "Instances", obj_player, { pid: _k, remote: (net_mode != "" && _k != my_pid) });
         }
     }
     cam_x = max(0, start_x - 200);
@@ -435,11 +442,17 @@ start_level = function()
     load_level(level_index, true);
     state = "play";
     clear_messages();
+    if (net_mode == "host")
+    {
+        // Tell the joiner first, so the messages below arrive after its level is built.
+        net_level_serial++;
+        net_send_level();
+        net_sent_state = "play";
+    }
     say(lvl.name, 180);
     say("FIND THE LETTERS. OPEN THE DOOR.", 180);
 };
 
-/// The hangman rule: a right letter opens part of the word, a wrong one is a miss.
 /// The hangman rule: a right letter opens part of the word for both snakes; a wrong one
 /// is a miss for the snake _by (an obj_player) that picked it up.
 on_letter = function(_ch, _x, _y, _by)
@@ -478,6 +491,8 @@ on_letter = function(_ch, _x, _y, _by)
 /// Snake _inst loses a heart; at zero hearts, a life.
 hurt_player = function(_inst)
 {
+    // Online, the joiner's own snake has been hurt: the host keeps the hearts.
+    if (net_mode == "client") { play_sfx(sfx.hurt); net_event({ t: "hurt" }); return; }
     var _p = _inst.stats;
     _p.hearts--;
     play_sfx(sfx.hurt);
@@ -489,6 +504,19 @@ hurt_player = function(_inst)
 player_died = function(_inst)
 {
     if (!instance_exists(_inst)) return;
+    if (net_mode == "client")
+    {
+        // The joiner's snake fell in a pit: hide it until the host says where to come back.
+        if (!_inst.hidden)
+        {
+            _inst.hidden = true;
+            _inst.vx = 0;
+            _inst.vy = 0;
+            play_sfx(sfx.die);
+            net_event({ t: "died" });
+        }
+        return;
+    }
     var _p = _inst.stats;
     play_sfx(sfx.die);
     _p.lives_left--;
@@ -499,6 +527,7 @@ player_died = function(_inst)
         _p.out = true;
         _p.inst = noone;
         instance_destroy(_inst);
+        if (net_mode == "host" && _p.pid == 1) net_event({ t: "out" });
         if (is_undefined(any_player_in()))
         {
             state = "gameover";
@@ -521,6 +550,7 @@ player_died = function(_inst)
             boost_t = 0;
             reset_body();
         }
+        if (net_mode == "host" && _p.pid == 1) net_event({ t: "respawn", x: _p.checkpoint_x, y: _p.checkpoint_y });
         say("OUCH! " + string(_p.lives_left) + " LIVES LEFT", 120, _p);
     }
     // A boss goes back to sleep (keeping its damage) until a snake returns.
@@ -536,6 +566,27 @@ player_died = function(_inst)
             play_music(lvl.music);
         }
     }
+};
+
+/// Breaks the cracked block at tile (_tx, _ty) and re-tiles its neighbours; 50 points to
+/// snake _p. Online, the host passes it on so both PCs have the same blocks.
+smash_tile = function(_tx, _ty, _p = undefined)
+{
+    if (_tx < 0 || _ty < 0 || _tx >= lvl_w || _ty >= lvl_h || grid[_tx][_ty] != T_CRACK) return;
+    grid[_tx][_ty] = T_EMPTY;
+    for (var _ox = -1; _ox <= 1; _ox++)
+    {
+        for (var _oy = -1; _oy <= 1; _oy++)
+        {
+            var _nx = _tx + _ox;
+            var _ny = _ty + _oy;
+            if (_nx >= 0 && _ny >= 0 && _nx < lvl_w && _ny < lvl_h) tilemap_set(tilemap, auto_tile(_nx, _ny), _nx, _ny);
+        }
+    }
+    part_particles_create(ps, _tx * TILE + 16, _ty * TILE + 16, pt_rock, 14);
+    play_sfx(sfx.smash);
+    add_score(50, _tx * TILE + 16, _ty * TILE, _p);
+    if (net_mode == "host") net_event({ t: "smash", x: _tx, y: _ty });
 };
 
 /// A boss has noticed a snake: its own music and a warning.
@@ -559,6 +610,12 @@ boss_defeated = function(_name)
 /// gets its own bonus: letters, time, and 500 for every miss it saved.
 level_complete = function()
 {
+    if (net_mode == "client")
+    {
+        // The joiner reached the open door: ask the host (once in a while, not every step).
+        if (frame - net_door_last > 30) { net_door_last = frame; net_event({ t: "door" }); }
+        return;
+    }
     state = "clear";
     var _base = 1000 * string_length(word) + max(0, 300 - floor(level_time / 60)) * 10;
     for (var _k = 0; _k < array_length(pl); _k++)
@@ -576,6 +633,469 @@ net = instance_create_layer(0, 0, "Instances", obj_net);
 online_mode = "menu";   // menu | type_ip | type | room
 online_ip = "";
 online_code = "";
+
+// ---------- Online game (step 3) ----------
+// The host runs the world: creatures, bosses, items, the word, and both snakes' score,
+// lives, hearts and misses. Each PC runs its own snake, so its keys answer at once.
+// About 30 times a second each side sends where its snake is; the host also sends the
+// creatures, the boss projectiles and the scores. Things that must not get lost (a letter
+// taken, a hit, a respawn, a new level) are numbered events, sent again in every packet
+// until the other side confirms them.
+net_mode = "";          // "" (offline) | host | client
+my_pid = 0;             // the snake this PC plays: the host is P1, the joiner P2
+net_next_id = 1000;     // ids for things made during play (level spawns use their index)
+ev_out = [];            // events not yet confirmed: { s: number, j: json }
+ev_seq = 0;
+ev_in_last = 0;         // the last event applied from the other side
+net_level_serial = 0;   // counts level starts, so the joiner can ignore an old level's world
+net_sent_state = "";
+net_tick_no = 0;
+net_peer_tick = -1;     // the newest packet applied from the other side
+net_snap_count = 0;     // joiner: world updates applied
+net_gone = {};          // joiner: projectiles already used up here
+net_lobby_sent = -1;
+net_lobby_c = 0;        // joiner: the host's snake choice
+net_quit_ask = false;
+net_door_last = -1000;
+net_buf = buffer_create(2048, buffer_grow, 1);
+
+/// The room connected: online play starts with this PC as host or joiner.
+net_begin = function(_role)
+{
+    net_mode = (_role == "host") ? "host" : "client";
+    my_pid = (_role == "host") ? 0 : 1;
+    ev_out = [];
+    ev_seq = 0;
+    ev_in_last = 0;
+    net_peer_tick = -1;
+    net_sent_state = "";
+    net_lobby_sent = -1;
+    net_gone = {};
+};
+
+net_end = function()
+{
+    net_mode = "";
+    my_pid = 0;
+    ev_out = [];
+    net_quit_ask = false;
+};
+
+/// Leaves the online game for the title screen.
+net_leave = function()
+{
+    net.stop();
+    net_end();
+    load_level(0, false);
+    state = "title";
+};
+
+/// Queues event _e (a struct) for the other PC.
+net_event = function(_e)
+{
+    if (net_mode == "") return;
+    ev_seq++;
+    array_push(ev_out, { s: ev_seq, j: json_stringify(_e) });
+};
+
+/// The host gives an item made during play (a gem from a creature, a boss's letter) an id
+/// and tells the joiner about it.
+net_spawned = function(_inst, _kind)
+{
+    if (net_mode != "host") return;
+    _inst.net_id = net_next_id++;
+    net_event({ t: "spawn", i: _inst.net_id, o: _kind, x: _inst.x, y: _inst.y, ch: (_kind == "letter") ? _inst.ch : "" });
+};
+
+/// The host tells the joiner which level, word and letters to play.
+net_send_level = function()
+{
+    var _letters = [];
+    with (obj_letter) array_push(_letters, [net_id, ch]);
+    net_event({ t: "level", i: level_index, ser: net_level_serial, word: word, ch: _letters, c: character });
+};
+
+/// The instance of _obj with id _nid, or noone.
+net_find = function(_obj, _nid)
+{
+    var _r = noone;
+    with (_obj) if (net_id == _nid) { _r = id; break; }
+    return _r;
+};
+
+/// An event from the other PC.
+net_apply_event = function(_e)
+{
+    switch (_e.t)
+    {
+        // ----- from the host -----
+        case "lobby":
+            net_lobby_c = _e.c;
+            break;
+
+        case "level":
+            character = _e.c;
+            players_n = 2;
+            if (array_length(pl) != 2) pl = [make_player(0, character), make_player(1, 1 - character)];
+            for (var _k = 0; _k < 2; _k++) pl[_k].out = false;
+            level_index = _e.i;
+            net_level_serial = _e.ser;
+            net_gone = {};
+            load_level(level_index, true);
+            word = _e.word;
+            guessed = "";
+            for (var _k = 0; _k < array_length(_e.ch); _k++)
+            {
+                var _l = net_find(obj_letter, _e.ch[_k][0]);
+                if (_l != noone) _l.ch = _e.ch[_k][1];
+            }
+            with (obj_enemy) net_seen = other.net_snap_count;
+            state = "play";
+            net_quit_ask = false;
+            clear_messages();
+            break;
+
+        case "state":
+            state = _e.s;
+            if (state == "clear") { play_music("music_05.ogg"); with (obj_player) if (!remote) { vx = 0; vy = 0; } }
+            else if (state == "gameover") stop_music();
+            else if (state == "victory") play_music("music_02.ogg");
+            break;
+
+        case "say":
+            if (array_length(pl) == 2) say(_e.m, _e.f, pl[my_pid]);
+            break;
+
+        case "respawn":
+            if (array_length(pl) == 2 && instance_exists(pl[my_pid].inst))
+            {
+                with (pl[my_pid].inst)
+                {
+                    x = _e.x;
+                    y = _e.y;
+                    vx = 0;
+                    vy = 0;
+                    invuln = 120;
+                    ball = false;
+                    boost_t = 0;
+                    hidden = false;
+                    reset_body();
+                }
+            }
+            break;
+
+        case "out":
+            if (array_length(pl) == 2)
+            {
+                if (instance_exists(pl[my_pid].inst)) instance_destroy(pl[my_pid].inst);
+                pl[my_pid].inst = noone;
+                pl[my_pid].out = true;
+            }
+            break;
+
+        case "took":
+            // The host's snake took an item (or the host confirmed ours): show it going.
+            var _it = net_find(obj_pickup, _e.i);
+            if (_it != noone) with (_it) { client_fx(noone); instance_destroy(); }
+            break;
+
+        case "kill":
+            var _en = net_find(obj_enemy, _e.i);
+            if (_en != noone)
+            {
+                burst(_en.x, _en.y, make_colour_rgb(255, 230, 90), 16);
+                play_sfx(sfx.pop);
+                if (object_is_ancestor(_en.object_index, obj_boss)) play_music(lvl.music);
+                instance_destroy(_en);
+            }
+            break;
+
+        case "bhit":
+            if (_e.by != my_pid)
+            {
+                var _bo = net_find(obj_enemy, _e.i);
+                if (_bo != noone) { play_sfx(sfx.boss_hit); burst(_bo.x, _bo.y - 10, make_colour_rgb(255, 230, 90), 10); }
+            }
+            break;
+
+        case "spawn":
+            var _it = instance_create_layer(_e.x, _e.y, "Instances", (_e.o == "letter") ? obj_letter : obj_gem);
+            _it.net_id = _e.i;
+            if (_e.o == "letter") _it.ch = _e.ch;
+            break;
+
+        case "smash":
+            smash_tile(_e.x, _e.y, (net_mode == "host" && array_length(pl) == 2) ? pl[1] : undefined);
+            break;
+
+        // ----- from the joiner -----
+        case "collect":
+            var _it = net_find(obj_pickup, _e.i);
+            var _by = (array_length(pl) == 2) ? pl[1].inst : noone;
+            if (_it != noone && instance_exists(_by)) with (_it) collect_now(_by);
+            break;
+
+        case "hit":
+            var _en = net_find(obj_enemy, _e.i);
+            var _by = (array_length(pl) == 2) ? pl[1].inst : noone;
+            if (_en != noone && instance_exists(_by)) with (_en) kill(_e.d, _by);
+            break;
+
+        case "hurt":
+            if (array_length(pl) == 2 && instance_exists(pl[1].inst)) hurt_player(pl[1].inst);
+            break;
+
+        case "died":
+            if (array_length(pl) == 2 && instance_exists(pl[1].inst)) player_died(pl[1].inst);
+            break;
+
+        case "hazard":
+            var _h = net_find(obj_hazard, _e.i);
+            if (_h != noone) instance_destroy(_h);
+            break;
+
+        case "flag":
+            if (array_length(pl) == 2) { pl[1].checkpoint_x = _e.x; pl[1].checkpoint_y = _e.y; }
+            break;
+
+        case "door":
+            if (state == "play" && word_is_solved(word, guessed)) level_complete();
+            break;
+    }
+};
+
+/// The host's world, written into buffer _b: the word so far, both snakes' scores and
+/// lives, every creature and every boss projectile.
+net_write_world = function(_b)
+{
+    buffer_write(_b, buffer_u16, net_level_serial);
+    buffer_write(_b, buffer_string, guessed);
+    buffer_write(_b, buffer_u8, array_length(pl));
+    for (var _k = 0; _k < array_length(pl); _k++)
+    {
+        var _p = pl[_k];
+        buffer_write(_b, buffer_u32, _p.score_now);
+        buffer_write(_b, buffer_u8, max(0, _p.lives_left));
+        buffer_write(_b, buffer_u8, max(0, _p.hearts));
+        buffer_write(_b, buffer_u16, _p.gems);
+        buffer_write(_b, buffer_u8, _p.misses);
+        buffer_write(_b, buffer_string, _p.miss_letters);
+        buffer_write(_b, buffer_u8, _p.out ? 1 : 0);
+        buffer_write(_b, buffer_u32, _p.bonus);
+        buffer_write(_b, buffer_u32, _p.shown);
+    }
+    var _en = [];
+    with (obj_enemy) if (net_id >= 0) array_push(_en, id);
+    buffer_write(_b, buffer_u16, array_length(_en));
+    for (var _i = 0; _i < array_length(_en); _i++)
+    {
+        with (_en[_i])
+        {
+            var _boss = object_is_ancestor(object_index, obj_boss);
+            buffer_write(_b, buffer_u16, net_id);
+            buffer_write(_b, buffer_s16, round(x));
+            buffer_write(_b, buffer_s16, round(y));
+            buffer_write(_b, buffer_s8, facing);
+            buffer_write(_b, buffer_u8, floor(image_index) mod 256);
+            buffer_write(_b, buffer_u8, _boss ? clamp(hurt_t, 0, 255) : 0);
+            buffer_write(_b, buffer_u8, _boss ? (active ? 1 : 0) : 0);
+            buffer_write(_b, buffer_u8, _boss ? clamp(hp, 0, 255) : 0);
+        }
+    }
+    var _hz = [];
+    with (obj_hazard) if (net_id >= 0) array_push(_hz, id);
+    buffer_write(_b, buffer_u16, array_length(_hz));
+    for (var _i = 0; _i < array_length(_hz); _i++)
+    {
+        with (_hz[_i])
+        {
+            buffer_write(_b, buffer_u16, net_id);
+            buffer_write(_b, buffer_u16, sprite_index);
+            buffer_write(_b, buffer_s16, round(x));
+            buffer_write(_b, buffer_s16, round(y));
+            buffer_write(_b, buffer_s16, round(image_angle) mod 360);
+        }
+    }
+};
+
+/// The joiner reads the host's world from buffer _b and mirrors it.
+net_read_world = function(_b)
+{
+    var _ser = buffer_read(_b, buffer_u16);
+    var _guessed = buffer_read(_b, buffer_string);
+    var _np = buffer_read(_b, buffer_u8);
+    for (var _k = 0; _k < _np; _k++)
+    {
+        // Read in order into locals (the layout net_write_world uses).
+        var _score = buffer_read(_b, buffer_u32);
+        var _lives = buffer_read(_b, buffer_u8);
+        var _hearts = buffer_read(_b, buffer_u8);
+        var _gems = buffer_read(_b, buffer_u16);
+        var _misses = buffer_read(_b, buffer_u8);
+        var _ml = buffer_read(_b, buffer_string);
+        var _out = buffer_read(_b, buffer_u8) == 1;
+        var _bonus = buffer_read(_b, buffer_u32);
+        var _shown = buffer_read(_b, buffer_u32);
+        if (_k < array_length(pl) && array_length(pl) == 2)
+        {
+            var _p = pl[_k];
+            _p.score_now = _score;
+            _p.lives_left = _lives;
+            _p.hearts = _hearts;
+            _p.gems = _gems;
+            _p.misses = _misses;
+            _p.miss_letters = _ml;
+            _p.out = _out;
+            _p.bonus = _bonus;
+            _p.shown = _shown;
+        }
+    }
+    // The rest belongs to one level: skip it if it's from a level we've left.
+    if (_ser != net_level_serial || (state != "play" && state != "clear")) return;
+    net_snap_count++;
+
+    if (_guessed != guessed)
+    {
+        var _was = word_is_solved(word, guessed);
+        guessed = _guessed;
+        var _now = word_is_solved(word, guessed);
+        with (obj_door) open = _now;
+        if (_now && !_was) play_sfx(sfx.door);
+    }
+
+    var _map = {};
+    with (obj_enemy) _map[$ string(net_id)] = id;
+    var _ne = buffer_read(_b, buffer_u16);
+    repeat (_ne)
+    {
+        var _id = buffer_read(_b, buffer_u16);
+        var _x = buffer_read(_b, buffer_s16);
+        var _y = buffer_read(_b, buffer_s16);
+        var _f = buffer_read(_b, buffer_s8);
+        var _ix = buffer_read(_b, buffer_u8);
+        var _ht = buffer_read(_b, buffer_u8);
+        var _ac = buffer_read(_b, buffer_u8) == 1;
+        var _hp = buffer_read(_b, buffer_u8);
+        var _en = _map[$ string(_id)];
+        if (is_undefined(_en) || !instance_exists(_en)) continue;
+        with (_en)
+        {
+            net_tx = _x;
+            net_ty = _y;
+            facing = _f;
+            image_index = _ix;
+            net_seen = other.net_snap_count;
+            if (object_is_ancestor(object_index, obj_boss))
+            {
+                hurt_t = _ht;
+                hp = _hp;
+                if (_ac != active) other.play_music(_ac ? music : other.lvl.music);
+                active = _ac;
+            }
+        }
+    }
+    // A creature the host no longer has (knocked out by its snake) goes here too.
+    with (obj_enemy) if (other.net_snap_count - net_seen > 4) instance_destroy();
+
+    var _seen = {};
+    var _nh = buffer_read(_b, buffer_u16);
+    repeat (_nh)
+    {
+        var _id = buffer_read(_b, buffer_u16);
+        var _spr = buffer_read(_b, buffer_u16);
+        var _x = buffer_read(_b, buffer_s16);
+        var _y = buffer_read(_b, buffer_s16);
+        var _a = buffer_read(_b, buffer_s16);
+        var _key = string(_id);
+        _seen[$ _key] = true;
+        if (variable_struct_exists(net_gone, _key)) continue;
+        var _h = net_find(obj_hazard, _id);
+        if (_h == noone)
+        {
+            _h = instance_create_layer(_x, _y, "Instances", obj_hazard);
+            _h.net_id = _id;
+            _h.sprite_index = _spr;
+        }
+        _h.net_tx = _x;
+        _h.net_ty = _y;
+        _h.image_angle = _a;
+    }
+    with (obj_hazard) if (!variable_struct_exists(_seen, string(net_id))) instance_destroy();
+};
+
+/// A packet of game data from the other PC (called by obj_net).
+net_receive = function(_b, _off, _size)
+{
+    if (net_mode == "") return;
+    buffer_seek(_b, buffer_seek_start, _off);
+    var _kind = buffer_read(_b, buffer_u8);
+    var _tick = buffer_read(_b, buffer_u32);
+    var _ack = buffer_read(_b, buffer_u32);
+    // Events the other side has confirmed needn't be sent again.
+    for (var _i = array_length(ev_out) - 1; _i >= 0; _i--) if (ev_out[_i].s <= _ack) array_delete(ev_out, _i, 1);
+    // New events, strictly in order (a gap waits for the resend).
+    var _n = buffer_read(_b, buffer_u8);
+    repeat (_n)
+    {
+        var _s = buffer_read(_b, buffer_u32);
+        var _j = buffer_read(_b, buffer_string);
+        if (_s == ev_in_last + 1)
+        {
+            ev_in_last = _s;
+            var _e = undefined;
+            try { _e = json_parse(_j); } catch (_x) { _e = undefined; }
+            if (is_struct(_e)) net_apply_event(_e);
+        }
+    }
+    if (_tick <= net_peer_tick) return;     // an older packet that arrived late
+    net_peer_tick = _tick;
+    var _snake = net_read_snake(_b);
+    var _peer = 1 - my_pid;
+    if (!is_undefined(_snake) && array_length(pl) == 2 && instance_exists(pl[_peer].inst)) net_apply_snake(pl[_peer].inst, _snake);
+    if (_kind == 1 && net_mode == "client") net_read_world(_b);
+};
+net.on_game = net_receive;
+
+/// Every other step: sends our snake (and, from the host, the world) with every event the
+/// other side hasn't confirmed yet. Called at the end of each step.
+net_update = function()
+{
+    if (net_mode == "") return;
+    if (net.state != "connected")
+    {
+        if (state == "play" || state == "paused" || state == "clear" || state == "gameover" || state == "victory") { state = "netlost"; stop_music(); }
+        net_end();
+        return;
+    }
+    net_tick_no++;
+    if (net_mode == "host")
+    {
+        if (state != net_sent_state)
+        {
+            if (state == "clear" || state == "gameover" || state == "victory") net_event({ t: "state", s: state });
+            net_sent_state = state;
+        }
+        if (net_lobby_sent != character) { net_lobby_sent = character; net_event({ t: "lobby", c: character }); }
+    }
+    if (net_tick_no mod 2 != 0) return;
+
+    var _b = net_buf;
+    buffer_seek(_b, buffer_seek_start, 0);
+    buffer_write(_b, buffer_u8, (net_mode == "host") ? 1 : 2);
+    buffer_write(_b, buffer_u32, net_tick_no);
+    buffer_write(_b, buffer_u32, ev_in_last);
+    var _n = min(array_length(ev_out), 12);
+    buffer_write(_b, buffer_u8, _n);
+    for (var _i = 0; _i < _n; _i++)
+    {
+        buffer_write(_b, buffer_u32, ev_out[_i].s);
+        buffer_write(_b, buffer_string, ev_out[_i].j);
+    }
+    var _me = (array_length(pl) == 2 && (state == "play" || state == "clear")) ? pl[my_pid].inst : noone;
+    net_write_snake(_b, _me);
+    if (net_mode == "host") net_write_world(_b);
+    net.send_game(_b, 0, buffer_tell(_b));
+};
 
 // Start on the title screen, over level 1's scenery.
 load_level(0, false);

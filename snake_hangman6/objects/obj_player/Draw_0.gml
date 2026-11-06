@@ -1,6 +1,7 @@
 /// The snake: body segments along the head's path, then the head, then the tongue.
 /// While hurt it blinks; as a ball it is one rolling coil.
 
+if (hidden) exit;
 if (invuln > 0 && (invuln div 4) mod 2 == 0) exit;
 var _g = obj_game;
 
