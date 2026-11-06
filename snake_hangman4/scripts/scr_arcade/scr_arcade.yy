@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_arcade",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_arcade",
+  "parent":{
+    "name":"snake_hangman4",
+    "path":"snake_hangman4.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

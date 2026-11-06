@@ -8,6 +8,7 @@ Each folder is a complete GameMaker project. Open its `.yyp` file in GameMaker, 
 | --- | --- |
 | [`snake_hangman/`](snake_hangman/) | v1: neon pixel art, with a pixel font drawn in code. |
 | [`snake_hangman2/`](snake_hangman2/) | v2: dressed as the Hall of Fame page of [Hangman: Rescue Mission](https://hangman.spyrostrimis.com), with its moon background, Bruno Ace SC, colours, Artsy and an arcade-style local Hall of Fame. |
+| [`snake_hangman4/`](snake_hangman4/) | v4, "Bubble Rounds": a tribute to the bubble arcades of the 80s, and above all to Taito's *Bubble Bobble* (1986). It runs at 320 × 240 shown at 3×, with brick rounds in a new colour each time, letter bubbles, a word column and six chances, lives, treats, a spiky enemy called Fizz, "HURRY UP!", a gap in the walls to wrap through, the scroll between rounds, a chiptune made in code, scanlines and a Best 5 table with initials. All the art, characters, rounds and music are original. |
 | [`snake_hangman3/`](snake_hangman3/) | v3: the site's homepage look (warp-speed stars, frosted glass, crew pods), plus four stages with walls, space debris on paths, Han's hint orb, Artsy reviving letter by letter, a particle starfield, a shader on the play field and sound effects made in code. |
 
 ## Credits
