@@ -1,15 +1,20 @@
 global.ui_t++;
-// The GUI is laid out for 1280 x 720 and stretched to whatever size the window has (e.g. full screen).
+// The GUI is laid out for 1280 x 720. It is scaled to fit any window size (resized or full screen),
+// keeping 16:9 with black bars where needed; Post Draw uses the same scale for the world.
 var _ww = window_get_width(), _wh = window_get_height();
 if (_ww > 0 && _wh > 0 && (_ww != gui_w || _wh != gui_h))
 {
     gui_w = _ww;
     gui_h = _wh;
-    display_set_gui_maximise(_ww / GUI_W, _wh / GUI_H, 0, 0);
+    global.view_s = min(_ww / GUI_W, _wh / GUI_H);
+    global.view_ox = floor((_ww - GUI_W * global.view_s) / 2);
+    global.view_oy = floor((_wh - GUI_H * global.view_s) / 2);
+    display_set_gui_maximise(global.view_s, global.view_s, global.view_ox, global.view_oy);
 }
 global.gx = device_mouse_x_to_gui(0);
 global.gy = device_mouse_y_to_gui(0);
 if (!centred && global.ui_t > 1) { window_center(); centred = true; }
+if (global.recentre > 0) { global.recentre--; if (global.recentre == 0) window_center(); }
 if (keyboard_check_pressed(vk_f11) || (keyboard_check(vk_alt) && keyboard_check_pressed(vk_enter))) window_set_fullscreen(!window_get_fullscreen());
 
 if (global.autotest) autotest_step();

@@ -90,6 +90,31 @@ function fmt_num(_n)
     return _s;
 }
 
+// ---------- Window ----------
+
+#macro WIN_SIZES [[1280, 720], [1600, 900], [1920, 1080], [2560, 1440]]
+
+/// Steps the window through a few 16:9 sizes that fit on this display.
+function window_next_size()
+{
+    if (window_get_fullscreen()) { window_set_fullscreen(false); return; }
+    var _sizes = WIN_SIZES;
+    for (var _k = 0; _k < array_length(_sizes); _k++)
+    {
+        global.win_i = (global.win_i + 1) mod array_length(_sizes);
+        var _w = _sizes[global.win_i][0], _h = _sizes[global.win_i][1];
+        if (_w <= display_get_width() && _h <= display_get_height() - 60) break;
+    }
+    window_set_size(_sizes[global.win_i][0], _sizes[global.win_i][1]);
+    global.recentre = 3;
+}
+
+function window_size_label()
+{
+    if (window_get_fullscreen()) return "Window: full screen";
+    return "Window: " + string(window_get_width()) + " x " + string(window_get_height());
+}
+
 // ---------- Title ----------
 
 function ui_title()
@@ -132,9 +157,11 @@ function ui_title()
             global.ui_t = 0;
         }
     }
-    if (ui_button(440, 560, 195, 34, global.sound_off ? "Sound: off" : "Sound: on")) global.sound_off = !global.sound_off;
-    if (ui_button(645, 560, 195, 34, global.edge_scroll ? "Edge scrolling: on" : "Edge scrolling: off")) global.edge_scroll = !global.edge_scroll;
-    if (ui_button(440, 604, 400, 34, "Quit")) game_end();
+    if (ui_button(440, 560, 127, 34, global.sound_off ? "Sound: off" : "Sound: on")) global.sound_off = !global.sound_off;
+    if (ui_button(577, 560, 263, 34, global.edge_scroll ? "Edge scrolling: on" : "Edge scrolling: off")) global.edge_scroll = !global.edge_scroll;
+    if (ui_button(440, 604, 127, 34, window_get_fullscreen() ? "Windowed" : "Full screen")) window_set_fullscreen(!window_get_fullscreen());
+    if (ui_button(577, 604, 168, 34, window_size_label())) window_next_size();
+    if (ui_button(755, 604, 85, 34, "Quit")) game_end();
     ui_text(640, 690, "An original tribute to the desert strategy games of the early 90s, made with GameMaker.", UI_TEXT, global.f_small, fa_center, fa_top, 0.8);
 }
 
@@ -484,8 +511,8 @@ function ui_pause()
     draw_set_colour(c_black);
     draw_rectangle(0, 0, GUI_W, GUI_H, false);
     draw_set_alpha(1);
-    ui_panel(460, 180, 820, 560);
-    ui_text(640, 198, "PAUSED", UI_AMBER, global.f_big, fa_center);
+    ui_panel(460, 160, 820, 610);
+    ui_text(640, 176, "PAUSED", UI_AMBER, global.f_big, fa_center);
     if (ui_button(490, 250, 300, 40, "Resume") || keyboard_check_pressed(vk_escape)) { global.paused = false; return; }
     var _sp = ["Slow", "Normal", "Fast"];
     if (ui_button(490, 300, 300, 40, "Game speed: " + _sp[global.speed_i]))
@@ -493,10 +520,12 @@ function ui_pause()
         global.speed_i = (global.speed_i + 1) mod 3;
         game_set_speed([42, 60, 84][global.speed_i], gamespeed_fps);
     }
-    if (ui_button(490, 350, 300, 40, global.sound_off ? "Sound: off" : "Sound: on")) global.sound_off = !global.sound_off;
-    if (ui_button(490, 400, 300, 40, "Restart mission")) { mission_start(global.mission_index); return; }
-    if (ui_button(490, 450, 300, 40, "Quit to title")) { mission_clear(); global.paused = false; global.state = "title"; return; }
-    ui_text(640, 506, "Mission " + string(global.mission_index + 1) + ": " + global.mission.objective, UI_DIM, global.f_small, fa_center);
+    if (ui_button(490, 350, 145, 40, global.sound_off ? "Sound: off" : "Sound: on")) global.sound_off = !global.sound_off;
+    if (ui_button(645, 350, 145, 40, window_get_fullscreen() ? "Windowed" : "Full screen")) window_set_fullscreen(!window_get_fullscreen());
+    if (ui_button(490, 400, 300, 40, window_size_label())) window_next_size();
+    if (ui_button(490, 450, 300, 40, "Restart mission")) { mission_start(global.mission_index); return; }
+    if (ui_button(490, 500, 300, 40, "Quit to title")) { mission_clear(); global.paused = false; global.state = "title"; return; }
+    ui_text(640, 560, "Mission " + string(global.mission_index + 1) + ": " + global.mission.objective, UI_DIM, global.f_small, fa_center);
 }
 
 function ui_end()
@@ -540,6 +569,7 @@ function ui_cursor()
     if (global.state == "play" && !global.paused && global.gx < SIDE_X && global.gy >= TOP_H)
     {
         var _h = global.hover;
+        if (_h != noone && !instance_exists(_h)) _h = noone; // it may have been destroyed since the Step event
         if (global.placing != "") _f = 0;
         else if (global.cmd == "attack") _f = 2;
         else if (array_length(global.sel) > 0)
