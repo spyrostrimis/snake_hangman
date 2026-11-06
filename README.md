@@ -8,8 +8,10 @@ Each folder is a complete GameMaker project. Open its `.yyp` file in GameMaker, 
 | --- | --- |
 | [`snake_hangman/`](snake_hangman/) | v1: neon pixel art, with a pixel font drawn in code. |
 | [`snake_hangman2/`](snake_hangman2/) | v2: dressed as the Hall of Fame page of [Hangman: Rescue Mission](https://hangman.spyrostrimis.com), with its moon background, Bruno Ace SC, colours, Artsy and an arcade-style local Hall of Fame. |
+| [`snake_hangman3/`](snake_hangman3/) | v3: the site's homepage look (warp-speed stars, frosted glass, crew pods), plus four stages with walls, space debris on paths, Han's hint orb, Artsy reviving letter by letter, a particle starfield, a shader on the play field and sound effects made in code. |
 
 ## Credits
 
-- v2 artwork (the Hall of Fame moon background and Artsy) comes from [spyrostrimis/hangman](https://github.com/spyrostrimis/hangman).
-- v2 uses the [Bruno Ace SC](https://fonts.google.com/specimen/Bruno+Ace+SC) font by Astigmatic, under the [SIL Open Font License 1.1](https://openfontlicense.org).
+- v2 and v3 artwork (backgrounds, Artsy, Han Fastolfe and Illucia) comes from [spyrostrimis/hangman](https://github.com/spyrostrimis/hangman).
+- v2 and v3 use the [Bruno Ace SC](https://fonts.google.com/specimen/Bruno+Ace+SC) font by Astigmatic, under the [SIL Open Font License 1.1](https://openfontlicense.org).
+- v3 uses [Techno Board](https://www.fontspace.com/techno-board-font-f56892) by PutraCetol, free for non-commercial use. Its free version draws digits as the designer's logo, so v3 sets numbers in Bruno Ace SC.

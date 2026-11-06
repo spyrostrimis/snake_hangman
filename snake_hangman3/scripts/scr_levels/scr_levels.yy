@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_levels",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_levels",
+  "parent":{
+    "name":"snake_hangman3",
+    "path":"snake_hangman3.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
