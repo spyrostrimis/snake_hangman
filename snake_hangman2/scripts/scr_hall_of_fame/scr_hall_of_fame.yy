@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_hall_of_fame",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_hall_of_fame",
+  "parent":{
+    "name":"snake_hangman2",
+    "path":"snake_hangman2.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
