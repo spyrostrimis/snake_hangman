@@ -444,15 +444,15 @@ function ui_info()
         }
         if (_own && _e.object_index == obj_building)
         {
+            if (_e.btype == "barracks" || _e.btype == "factory") ui_text(_x + 8, _y + 50, "Right-click the map: rally point", UI_DIM, global.f_small);
+            if (ui_button(_x + 8, _y + 70, 108, 30, _e.repairing ? "Repairing..." : "Repair", _e.hp < _e.maxhp, _e.repairing)) _e.repairing = !_e.repairing;
+            if (ui_button(_x + 124, _y + 70, 108, 30, "Sell (" + string(floor(_e.def.cost * 0.5 * _e.hp / _e.maxhp)) + ")"))
             {
-                if (ui_button(_x + 8, _y + 70, 108, 30, _e.repairing ? "Repairing..." : "Repair", _e.hp < _e.maxhp, _e.repairing)) _e.repairing = !_e.repairing;
-                if (ui_button(_x + 124, _y + 70, 108, 30, "Sell (" + string(floor(_e.def.cost * 0.5 * _e.hp / _e.maxhp)) + ")"))
-                {
-                    if (global.sel_one == _e) global.sel_one = noone;
-                    building_sell(_e);
-                }
+                // Selling destroys the structure, so nothing below may touch _e any more.
+                global.sel_one = noone;
+                building_sell(_e);
             }
-            if (instance_exists(_e) && (_e.btype == "barracks" || _e.btype == "factory")) ui_text(_x + 8, _y + 50, "Right-click the map: rally point", UI_DIM, global.f_small);
+            return;
         }
         if (_own && _e.object_index == obj_unit) ui_unit_buttons(_x, _y);
         return;
