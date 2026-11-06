@@ -1,0 +1,49 @@
+/// A unit. team, utype and face are set by spawn_unit before this runs.
+def = global.udef[$ utype];
+kind = def.kind;
+armor = kind;
+radius = def.radius;
+hp = def.hp;
+maxhp = def.hp;
+if (!variable_instance_exists(id, "face")) face = 270;
+tface = face;
+mask_index = spr_smoke;
+image_speed = 0;
+depth = DEPTH_BASE - y;
+
+order = "idle";
+target = noone;
+selected = false;
+path = path_add();
+moving = false;
+path_i = 0;
+goal_x = x;
+goal_y = y;
+guard_x = x;
+guard_y = y;
+amove_x = x;
+amove_y = y;
+amove_resume = false;
+reload = irandom(20);
+think = irandom(12);
+chase_t = 0;
+stuck_t = 0;
+stuck_d = 0;
+repaths = 0;
+flash = 0;
+cell_x = -1;
+cell_y = -1;
+walk = random(100);
+ai_role = "home";
+phase = irandom(1);
+
+// Harvester state
+htask = "idle";
+cargo = 0;
+dig_cx = -1;
+dig_cy = -1;
+last_cx = -1;
+last_cy = -1;
+dig_t = 0;
+wait_t = 0;
+dock_ref = noone;
