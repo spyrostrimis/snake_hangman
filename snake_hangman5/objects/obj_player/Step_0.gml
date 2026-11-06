@@ -13,6 +13,7 @@ var _tongue = keyboard_check_pressed(ord("X")) || keyboard_check_pressed(ord("J"
 var _ball_key = keyboard_check_pressed(ord("C")) || keyboard_check_pressed(vk_shift);
 
 if (invuln > 0) invuln--;
+if (gulp_t > 0) gulp_t--;
 if (blink > 0) blink--; else if (irandom(180) == 0) blink = 8;
 
 // ---------- Curl into a ball (and back) ----------
@@ -122,8 +123,10 @@ if (tongue_t > 0)
     if (tongue_t <= 11)
     {
         // Anything the tongue touches: creatures are knocked out, items are pulled in.
-        with (obj_enemy) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < hh + 4) kill();
+        with (obj_enemy) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < hh + 4) kill(1);
         with (obj_pickup) if (!grabbed && point_segment_distance(x, y, _mx, _my, _tip, _my) < 16) { grabbed = true; _g.play_sfx(_g.sfx.slurp); }
+        // The tongue also swats a boss's cheese and feathers out of the air.
+        with (obj_hazard) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < 12) { _g.burst(x, y, c_white, 6); instance_destroy(); }
     }
 }
 
@@ -132,13 +135,19 @@ with (obj_enemy)
 {
     if (abs(x - other.x) < hw + other.hw && abs(y - other.y) < hh + other.hh)
     {
-        if (other.ball) kill();
+        var _is_boss = object_is_ancestor(object_index, obj_boss);
+        if (other.ball)
+        {
+            kill(2);
+            // A boss is too big to roll through: the ball bounces off it.
+            if (_is_boss && instance_exists(id)) { other.vx = sign(other.x - x) * 5; other.vy = -5; }
+        }
         else if (other.vy > 1.5 && other.y < y - 4)
         {
-            kill();
-            other.vy = -7;
+            kill(2);
+            other.vy = _is_boss ? -10 : -7;
         }
-        else if (other.invuln == 0) with (other) take_hit(sign(x - other.x));
+        else if (other.invuln == 0 && !(_is_boss && hurt_t > 30)) with (other) take_hit(sign(x - other.x));
     }
 }
 

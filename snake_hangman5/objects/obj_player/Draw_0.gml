@@ -18,6 +18,8 @@ for (var _k = _n; _k >= 1; _k--)
     var _p = segs[_k - 1];
     var _wiggle = _moving ? sin(_g.frame * 0.35 + _k * 1.1) * 1.5 : 0;
     var _scale = 1 - (_k / (_n + 2)) * 0.45;
+    // A swallowed egg: a bulge that travels from the neck to the tail.
+    if (gulp_t > 0 && _k == clamp(ceil((1 - gulp_t / 45) * _n), 1, _n)) _scale *= 1.45;
     if (_k == _n)
     {
         draw_sprite_ext(spr_snake_tail, 0, _p[0], _p[1] + _wiggle, _scale + 0.2, _scale + 0.2, 0, c_white, 1);

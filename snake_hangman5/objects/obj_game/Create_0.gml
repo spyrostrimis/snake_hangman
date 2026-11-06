@@ -92,6 +92,7 @@ tally      = { bonus: 0, shown: 0, gems: 0, time: 0 };
 level_time = 0;
 
 // ---------- Level state ----------
+boss = noone;
 lvl = undefined;
 grid = [];
 lvl_w = 1;
@@ -131,7 +132,9 @@ clear_level = function()
 {
     with (obj_player) instance_destroy();
     with (obj_enemy) instance_destroy();
+    with (obj_hazard) instance_destroy();
     with (obj_pickup) instance_destroy();
+    boss = noone;
     with (obj_spring) instance_destroy();
     with (obj_door) instance_destroy();
     with (obj_flag) instance_destroy();
@@ -243,7 +246,13 @@ load_level = function(_i, _with_player)
             case "start":  start_x = _px; start_y = _s.ty * TILE + 32 - 12; break;
             case "letter": array_push(_letter_spots, instance_create_layer(_px, _py, "Instances", obj_letter)); break;
             case "gem":    instance_create_layer(_px, _py, "Instances", obj_gem); break;
-            case "carrot": instance_create_layer(_px, _py, "Instances", obj_carrot); break;
+            case "egg":    instance_create_layer(_px, _py, "Instances", obj_egg); break;
+            case "boss_mouse":
+            case "boss_hen":
+                boss = instance_create_layer(_px, _s.ty * TILE + 32 - 26, "Instances", (_s.kind == "boss_mouse") ? obj_boss_mouse : obj_boss_hen);
+                boss.arena_x1 = lvl.arena[0] * TILE + 32;
+                boss.arena_x2 = lvl.arena[1] * TILE;
+                break;
             case "bug":    instance_create_layer(_px, _s.ty * TILE + 32 - 12, "Instances", obj_bug); break;
             case "bee":    instance_create_layer(_px, _py, "Instances", obj_bee); break;
             case "spring": instance_create_layer(_px, _s.ty * TILE + 32, "Instances", obj_spring); break;
@@ -253,7 +262,14 @@ load_level = function(_i, _with_player)
     }
 
     // Letters: every letter of the word once, the other spots get different wrong letters.
+    // A boss keeps one letter of the word for itself; beating it is the only way to get it.
     var _need = word_hidden_letters(word, "");
+    if (instance_exists(boss) && array_length(_need) > 1)
+    {
+        var _b = irandom(array_length(_need) - 1);
+        boss.ch = _need[_b];
+        array_delete(_need, _b, 1);
+    }
     var _pool = [];
     for (var _c = 0; _c < 26; _c++)
     {
@@ -362,6 +378,13 @@ player_died = function()
         return;
     }
     hearts = 5;
+    // A boss goes back to sleep (keeping its damage) until the snake returns.
+    if (instance_exists(boss))
+    {
+        boss.active = false;
+        play_music(lvl.music);
+    }
+    with (obj_hazard) instance_destroy();
     with (obj_player)
     {
         x = other.checkpoint_x;
@@ -373,6 +396,23 @@ player_died = function()
         reset_body();
     }
     say("OUCH! " + string(lives) + " LIVES LEFT", 120);
+};
+
+/// A boss has noticed the snake: its own music and a warning.
+boss_start = function(_b)
+{
+    play_music(_b.music);
+    messages = [];
+    say("WATCH OUT! IT'S " + _b.boss_name + "!", 150);
+    say("IT HOLDS A LETTER OF THE WORD", 120);
+};
+
+boss_defeated = function(_name)
+{
+    play_sfx(sfx.boss_win);
+    play_music(lvl.music);
+    messages = [];
+    say(_name + " IS BEATEN! GRAB THE LETTER!", 180);
 };
 
 level_complete = function()

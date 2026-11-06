@@ -5,7 +5,7 @@ function lvl_create(_name, _w, _h, _music, _sky_top, _sky_bottom)
 {
     var _grid = array_create(_w);
     for (var _x = 0; _x < _w; _x++) _grid[_x] = array_create(_h, T_EMPTY);
-    return { name: _name, w: _w, h: _h, grid: _grid, spawns: [], music: _music, sky_top: _sky_top, sky_bottom: _sky_bottom };
+    return { name: _name, w: _w, h: _h, grid: _grid, spawns: [], music: _music, sky_top: _sky_top, sky_bottom: _sky_bottom, arena: [0, 0] };
 }
 
 function lvl_rect(_l, _x1, _y1, _x2, _y2, _t)
@@ -50,7 +50,7 @@ function level_greenleaf()
 
     lvl_rect(L, 46, 4, 52, 5, T_SOLID);
     lvl_put(L, "letter", 49, 3);
-    lvl_put(L, "carrot", 47, 3);
+    lvl_put(L, "egg", 47, 3);
     lvl_ground(L, 45, 72, 11);
     lvl_put(L, "bee", 55, 7);
     lvl_put(L, "letter", 58, 10);
@@ -79,7 +79,7 @@ function level_greenleaf()
     lvl_put(L, "bug", 116, 10);
     lvl_put(L, "letter", 110, 7);
     lvl_put(L, "letter", 119, 10);
-    lvl_put(L, "carrot", 114, 10);
+    lvl_put(L, "egg", 114, 10);
     lvl_put(L, "spring", 121, 10);
 
     lvl_ground(L, 127, 169, 11);
@@ -87,11 +87,13 @@ function level_greenleaf()
     lvl_put(L, "letter", 134, 5);
     lvl_put(L, "bee", 140, 7);
     lvl_put(L, "letter", 145, 10);
-    lvl_put(L, "bug", 150, 10);
-    lvl_rect(L, 153, 8, 157, 8, T_ONEWAY);
-    lvl_put(L, "letter", 155, 7);
-    lvl_gems(L, 158, 161, 10);
-    lvl_put(L, "door", 164, 10);
+
+    // Boss arena: Big Cheese guards the exit and one letter of the word.
+    L.arena = [146, 163];
+    lvl_rect(L, 151, 8, 155, 8, T_ONEWAY);
+    lvl_put(L, "letter", 153, 7);
+    lvl_put(L, "boss_mouse", 158, 10);
+    lvl_put(L, "door", 165, 10);
     return L;
 }
 
@@ -143,7 +145,7 @@ function level_mushroom()
     lvl_put(L, "spring", 110, 10);
     lvl_rect(L, 112, 6, 114, 14, T_SOLID);
     lvl_put(L, "letter", 113, 5);
-    lvl_put(L, "carrot", 112, 5);
+    lvl_put(L, "egg", 112, 5);
 
     lvl_ground(L, 115, 149, 11);
     lvl_put(L, "bug", 120, 10);
@@ -151,12 +153,15 @@ function level_mushroom()
     lvl_rect(L, 126, 7, 131, 7, T_SOLID);
     lvl_rect(L, 131, 8, 131, 10, T_SOLID);
     lvl_put(L, "letter", 128, 10);
-    lvl_put(L, "bug", 134, 10);
-    lvl_put(L, "letter", 138, 10);
-    lvl_put(L, "carrot", 140, 10);
-    lvl_rect(L, 142, 7, 146, 7, T_ONEWAY);
-    lvl_put(L, "letter", 144, 6);
-    lvl_put(L, "door", 147, 10);
+
+    // Boss arena: the Hothead Hen guards the exit and one letter of the word.
+    L.arena = [132, 146];
+    lvl_put(L, "letter", 134, 10);
+    lvl_rect(L, 137, 7, 141, 7, T_ONEWAY);
+    lvl_put(L, "letter", 139, 6);
+    lvl_put(L, "egg", 144, 10);
+    lvl_put(L, "boss_hen", 141, 10);
+    lvl_put(L, "door", 148, 10);
     return L;
 }
 

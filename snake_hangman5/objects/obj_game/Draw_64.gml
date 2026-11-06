@@ -75,6 +75,20 @@ switch (state)
             hud_text(_wx + _i * 26, 13, _found ? _ch : "?", 0.42, fa_center, _found ? c_white : make_colour_rgb(160, 170, 210));
         }
 
+        // A boss's name and health bar, under the word.
+        if (instance_exists(boss) && boss.active)
+        {
+            var _bw = 220;
+            var _bx = 320 - _bw / 2;
+            hud_text(320, 42, boss.boss_name, 0.36, fa_center, make_colour_rgb(255, 160, 120));
+            draw_set_colour(make_colour_rgb(20, 16, 40));
+            draw_roundrect(_bx - 3, 60, _bx + _bw + 3, 72, false);
+            var _f = max(0, boss.hp / boss.hp_max);
+            draw_rectangle_colour(_bx, 63, _bx + _bw * _f, 69, c_red, make_colour_rgb(255, 200, 60), make_colour_rgb(255, 200, 60), c_red, false);
+            draw_set_colour(c_white);
+            draw_roundrect(_bx - 3, 60, _bx + _bw + 3, 72, true);
+        }
+
         // Lives, bottom left.
         draw_sprite_ext(spr_snake_head, 0, 24, 340, 0.75, 0.75, 0, c_white, 1);
         hud_text(42, 326, "x" + string(lives), 0.5);

@@ -229,6 +229,78 @@ save("spr_vine", 12, 64,
   `<path d="M6 0 Q1 16 6 32 Q11 48 6 64" stroke="#2c8a16" stroke-width="3" fill="none"/>
    <ellipse cx="3" cy="14" rx="3" ry="5" fill="#55c42a"/><ellipse cx="9" cy="38" rx="3" ry="5" fill="#55c42a"/><ellipse cx="3" cy="56" rx="3" ry="4" fill="#55c42a"/>`);
 
+// ---------- Bosses (facing right; frames: 0 stand, 1 move, 2 attack, 3 hurt) ----------
+function mouse(f) {
+  const grey = "#9a98ac", dark = "#34324a", pink = "#f4a3b8";
+  const lean = f === 2 ? -6 : 0;
+  const legs = f === 1 ? `<ellipse cx="30" cy="77" rx="9" ry="5" fill="${pink}" stroke="${dark}" stroke-width="2"/><ellipse cx="56" cy="74" rx="9" ry="5" fill="${pink}" stroke="${dark}" stroke-width="2"/>`
+                       : `<ellipse cx="32" cy="76" rx="9" ry="5" fill="${pink}" stroke="${dark}" stroke-width="2"/><ellipse cx="54" cy="76" rx="9" ry="5" fill="${pink}" stroke="${dark}" stroke-width="2"/>`;
+  const eyes = f === 3
+    ? `<path d="M55 24 L61 30 M61 24 L55 30 M65 23 L71 29 M71 23 L65 29" stroke="${dark}" stroke-width="2.5" stroke-linecap="round"/>`
+    : `<ellipse cx="58" cy="27" rx="4.5" ry="5.5" fill="#fff" stroke="${dark}" stroke-width="1.5"/><ellipse cx="68" cy="26" rx="4.5" ry="5.5" fill="#fff" stroke="${dark}" stroke-width="1.5"/>
+       <circle cx="60" cy="28" r="2.2" fill="#111"/><circle cx="70" cy="27" r="2.2" fill="#111"/>
+       <path d="M53 19 L63 23 M73 18 L65 22" stroke="${dark}" stroke-width="3" stroke-linecap="round"/>`;
+  const glove = f === 2
+    ? `<circle cx="20" cy="40" r="10" fill="#e8283a" stroke="#6a0010" stroke-width="2"/><path d="M16 36 q4 -3 8 0" stroke="#ffb0b8" stroke-width="2" fill="none"/>`
+    : `<circle cx="72" cy="56" r="10" fill="#e8283a" stroke="#6a0010" stroke-width="2"/><path d="M68 52 q4 -3 8 0" stroke="#ffb0b8" stroke-width="2" fill="none"/>`;
+  return `<g transform="translate(${lean} 0)">
+    <path d="M18 60 Q2 56 4 40 Q6 30 12 34" stroke="${pink}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    ${legs}
+    <ellipse cx="42" cy="56" rx="25" ry="20" fill="${grey}" stroke="${dark}" stroke-width="2.5"/>
+    <ellipse cx="47" cy="61" rx="14" ry="11" fill="#dcdbe6"/>
+    <circle cx="28" cy="54" r="9" fill="#e8283a" stroke="#6a0010" stroke-width="2"/>
+    <circle cx="44" cy="12" r="11" fill="${grey}" stroke="${dark}" stroke-width="2"/><circle cx="44" cy="12" r="6" fill="${pink}"/>
+    <circle cx="72" cy="10" r="11" fill="${grey}" stroke="${dark}" stroke-width="2"/><circle cx="72" cy="10" r="6" fill="${pink}"/>
+    <circle cx="60" cy="30" r="17" fill="${grey}" stroke="${dark}" stroke-width="2.5"/>
+    <path d="M47 20 L74 13 L70 5 Z" fill="#ffd21c" stroke="#9a6a00" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="62" cy="13" r="1.8" fill="#d8a000"/><circle cx="68" cy="10" r="1.4" fill="#d8a000"/>
+    <ellipse cx="74" cy="36" rx="8" ry="6" fill="${grey}" stroke="${dark}" stroke-width="2"/>
+    <circle cx="81" cy="34" r="3.2" fill="${pink}" stroke="${dark}" stroke-width="1.2"/>
+    <rect x="70" y="41" width="4" height="5" fill="#fff" stroke="${dark}" stroke-width="1"/><rect x="74" y="41" width="4" height="5" fill="#fff" stroke="${dark}" stroke-width="1"/>
+    <path d="M76 36 L88 33 M76 38 L88 39" stroke="${dark}" stroke-width="1"/>
+    ${f === 3 ? `<ellipse cx="72" cy="45" rx="4" ry="3" fill="#6a0010"/>` : ""}${eyes}${glove}</g>`;
+}
+for (let f = 0; f < 4; f++) save("spr_mouse_" + f, 92, 84, mouse(f));
+
+function hen(f) {
+  const ink = "#5a3a1a", comb = "#e8283a";
+  const head = f === 2 ? `translate(6 10) rotate(18 58 26)` : "translate(0 0)";
+  const wing = f === 1
+    ? `<path d="M30 44 Q20 14 46 22 Q44 38 30 44 Z" fill="#f2f2f2" stroke="${ink}" stroke-width="2"/>`
+    : `<ellipse cx="36" cy="52" rx="15" ry="10" fill="#efefef" stroke="${ink}" stroke-width="2"/>`;
+  const eye = f === 3
+    ? `<path d="M58 20 L64 26 M64 20 L58 26" stroke="#222" stroke-width="2.5" stroke-linecap="round"/>`
+    : `<circle cx="61" cy="23" r="4" fill="#fff" stroke="${ink}" stroke-width="1.3"/><circle cx="62.5" cy="23.5" r="2" fill="#111"/>
+       <path d="M54 16 L67 20" stroke="#222" stroke-width="3" stroke-linecap="round"/>`;
+  const steam = f !== 3 ? `<path d="M48 4 q-4 -4 0 -8 M56 2 q-4 -4 0 -8" stroke="#fff" stroke-width="2.5" fill="none" opacity="0.8"/>` : "";
+  return `<path d="M18 44 Q2 30 8 18 Q14 30 22 30 Q14 18 22 10 Q26 26 30 34 Z" fill="#fff" stroke="${ink}" stroke-width="2"/>
+    <path d="M34 70 L32 82 M28 82 L36 82 M48 70 L50 82 M46 82 L54 82" stroke="#ff9a1c" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="42" cy="52" rx="26" ry="22" fill="#fff" stroke="${ink}" stroke-width="2.5"/>
+    ${wing}
+    <g transform="${head}">
+      <path d="M48 12 Q50 2 55 8 Q58 0 62 8 Q67 2 67 13 Z" fill="${comb}" stroke="#7a0010" stroke-width="1.5"/>
+      <circle cx="58" cy="26" r="14" fill="#fff" stroke="${ink}" stroke-width="2.5"/>
+      <circle cx="56" cy="31" r="5" fill="#ff6a6a" opacity="0.7"/>
+      <path d="M70 24 L84 28 L70 33 Z" fill="#ffc21c" stroke="#9a6a00" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M69 34 Q72 42 67 42 Q64 38 66 34 Z" fill="${comb}" stroke="#7a0010" stroke-width="1.2"/>
+      ${eye}${steam}
+    </g>
+    ${f === 3 ? `<path d="M10 60 l6 -4 M76 56 l6 -6 M20 74 l-4 6" stroke="#fff" stroke-width="3"/>` : ""}`;
+}
+for (let f = 0; f < 4; f++) save("spr_hen_" + f, 92, 86, hen(f));
+
+save("spr_cheese", 22, 18,
+  `<path d="M2 16 L20 16 L20 4 Z" fill="#ffd21c" stroke="#9a6a00" stroke-width="1.8" stroke-linejoin="round"/>
+   <path d="M2 16 L20 4 L14 1 Z" fill="#ffe680" stroke="#9a6a00" stroke-width="1.5" stroke-linejoin="round"/>
+   <circle cx="14" cy="12" r="2" fill="#d8a000"/><circle cx="17" cy="8" r="1.4" fill="#d8a000"/>`);
+save("spr_feather", 14, 26,
+  `<path d="M7 25 Q1 14 7 1 Q13 14 7 25 Z" fill="#ffffff" stroke="#8a7a6a" stroke-width="1.3"/>
+   <path d="M7 25 L7 4" stroke="#b8a890" stroke-width="1.2"/><path d="M7 10 L3 7 M7 15 L11 12 M7 19 L3 16" stroke="#c8b8a0" stroke-width="1"/>`);
+save("spr_egg", 22, 28,
+  `<ellipse cx="11" cy="15" rx="9" ry="12" fill="#fff4dc" stroke="#b8945a" stroke-width="1.6"/>
+   <circle cx="7" cy="17" r="1.4" fill="#c89a5a"/><circle cx="13" cy="21" r="1.1" fill="#c89a5a"/><circle cx="14" cy="11" r="1.2" fill="#c89a5a"/><circle cx="9" cy="24" r="0.9" fill="#c89a5a"/>
+   <ellipse cx="7.5" cy="9" rx="2.2" ry="3.5" fill="#ffffff" opacity="0.9"/>`);
+
 // ---------- Title logo: chunky 3D cartoon letters ----------
 function logo3d(text, size, y, w) {
   let layers = "";

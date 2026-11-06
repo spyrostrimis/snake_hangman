@@ -13,7 +13,7 @@ points = 200;
 image_speed = 0.15;
 
 /// Knocked out by the tongue, a ball or a stomp: a puff of stars, points and a gem left behind.
-kill = function()
+kill = function(_dmg = 1)
 {
     var _g = obj_game;
     _g.burst(x, y, make_colour_rgb(255, 230, 90), 16);
