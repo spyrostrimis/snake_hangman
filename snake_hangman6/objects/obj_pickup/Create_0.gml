@@ -3,12 +3,14 @@
 bob = random(2 * pi);
 base_y = y;
 grabbed = false;
+grabber = noone;        // the snake whose tongue has it
 spin = false;
 image_speed = 0;
-on_collect = function() {};
+on_collect = function(_by) {};
 
-collect_now = function()
+/// Collected by snake _by (an obj_player).
+collect_now = function(_by)
 {
-    on_collect();
+    on_collect(_by);
     instance_destroy();
 };

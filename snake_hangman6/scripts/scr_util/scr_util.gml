@@ -196,3 +196,130 @@ function sprite_swap_red_green(_spr)
     surface_free(_surf);
     return _new;
 }
+
+// ---------- Two players: controls, gamepads and split screen ----------
+
+// Each half of the split screen shows this much of the level (a little more than half of
+// the 640 x 360 single view, so the shorter view still shows a good jump's height).
+#macro SPLIT_VIEW_W 800
+#macro SPLIT_VIEW_H 225
+
+/// The gamepads plugged in now (GameMaker slots 0-11), in slot order.
+function gamepads_connected()
+{
+    var _pads = [];
+    for (var _i = 0; _i < gamepad_get_device_count(); _i++) if (gamepad_is_connected(_i)) array_push(_pads, _i);
+    return _pads;
+}
+
+/// The gamepad slot player _pid uses, or -1. Alone, any gamepad plays. With two players,
+/// one gamepad goes to player 2 (a friend on Parsec shows up as a gamepad); two give one each.
+function player_pad(_pid, _players)
+{
+    var _pads = gamepads_connected();
+    var _n = array_length(_pads);
+    if (_n == 0) return -1;
+    if (_players == 1) return _pads[0];
+    if (_pid == 1) return _pads[_n - 1];
+    return (_n >= 2) ? _pads[0] : -1;
+}
+
+/// Player _pid's controls this step, as a struct. Keys (two players share one keyboard):
+///   one player : arrows / WASD, Z / Space / Up / W jump, X / J tongue, Shift roll, C boost
+///   player 1   : A D move, W jump, S down, F tongue, G roll (hold), H boost
+///   player 2   : arrows move, Up jump, Down down, J tongue, K roll (hold), L boost
+///   gamepad    : stick / D-pad, A jump, X tongue, RB / LB / Y roll (hold), B boost
+function read_controls(_pid, _players)
+{
+    var _c = { left: false, right: false, down: false, jump_pressed: false, jump_held: false, tongue: false, roll_held: false, boost: false };
+    if (_players == 1)
+    {
+        _c.left  = keyboard_check(vk_left)  || keyboard_check(ord("A"));
+        _c.right = keyboard_check(vk_right) || keyboard_check(ord("D"));
+        _c.down  = keyboard_check(vk_down)  || keyboard_check(ord("S"));
+        _c.jump_pressed = keyboard_check_pressed(ord("Z")) || keyboard_check_pressed(vk_space) || keyboard_check_pressed(vk_up) || keyboard_check_pressed(ord("W"));
+        _c.jump_held    = keyboard_check(ord("Z")) || keyboard_check(vk_space) || keyboard_check(vk_up) || keyboard_check(ord("W"));
+        _c.tongue    = keyboard_check_pressed(ord("X")) || keyboard_check_pressed(ord("J"));
+        _c.roll_held = keyboard_check(vk_shift);
+        _c.boost     = keyboard_check_pressed(ord("C"));
+    }
+    else if (_pid == 0)
+    {
+        _c.left  = keyboard_check(ord("A"));
+        _c.right = keyboard_check(ord("D"));
+        _c.down  = keyboard_check(ord("S"));
+        _c.jump_pressed = keyboard_check_pressed(ord("W"));
+        _c.jump_held    = keyboard_check(ord("W"));
+        _c.tongue    = keyboard_check_pressed(ord("F"));
+        _c.roll_held = keyboard_check(ord("G"));
+        _c.boost     = keyboard_check_pressed(ord("H"));
+    }
+    else
+    {
+        _c.left  = keyboard_check(vk_left);
+        _c.right = keyboard_check(vk_right);
+        _c.down  = keyboard_check(vk_down);
+        _c.jump_pressed = keyboard_check_pressed(vk_up);
+        _c.jump_held    = keyboard_check(vk_up);
+        _c.tongue    = keyboard_check_pressed(ord("J"));
+        _c.roll_held = keyboard_check(ord("K"));
+        _c.boost     = keyboard_check_pressed(ord("L"));
+    }
+
+    var _pad = player_pad(_pid, _players);
+    if (_pad >= 0)
+    {
+        var _ax = gamepad_axis_value(_pad, gp_axislh);
+        var _ay = gamepad_axis_value(_pad, gp_axislv);
+        _c.left  |= gamepad_button_check(_pad, gp_padl) || _ax < -0.4;
+        _c.right |= gamepad_button_check(_pad, gp_padr) || _ax > 0.4;
+        _c.down  |= gamepad_button_check(_pad, gp_padd) || _ay > 0.5;
+        _c.jump_pressed |= gamepad_button_check_pressed(_pad, gp_face1);
+        _c.jump_held    |= gamepad_button_check(_pad, gp_face1);
+        _c.tongue    |= gamepad_button_check_pressed(_pad, gp_face3);
+        _c.roll_held |= gamepad_button_check(_pad, gp_shoulderr) || gamepad_button_check(_pad, gp_shoulderl) || gamepad_button_check(_pad, gp_face4);
+        _c.boost     |= gamepad_button_check_pressed(_pad, gp_face2);
+    }
+    return _c;
+}
+
+/// True if any gamepad pressed button _btn this step.
+function any_pad_pressed(_btn)
+{
+    var _pads = gamepads_connected();
+    for (var _i = 0; _i < array_length(_pads); _i++) if (gamepad_button_check_pressed(_pads[_i], _btn)) return true;
+    return false;
+}
+
+/// "OK" on the menus: Enter or Space, or A / Start on any gamepad.
+function menu_confirm()
+{
+    return keyboard_check_pressed(vk_enter) || keyboard_check_pressed(vk_space) || any_pad_pressed(gp_face1) || any_pad_pressed(gp_start);
+}
+
+/// The run state (score, lives, hearts...) of the snake instance _inst. Without one
+/// (a creature hit by nothing in particular) it falls back to player 1, or undefined.
+function stats_of(_inst)
+{
+    if (_inst != noone && instance_exists(_inst)) return _inst.stats;
+    var _g = obj_game;
+    return (array_length(_g.pl) > 0) ? _g.pl[0] : undefined;
+}
+
+/// Layer begin script of the sky layer: runs before each view draws, and moves the
+/// parallax background layers for that view's camera (each half has its own).
+function parallax_for_view()
+{
+    var _cam = view_camera[view_current];
+    obj_game.place_parallax(camera_get_view_x(_cam), camera_get_view_y(_cam));
+}
+
+/// A small arrow on the title screen pointing left (_dir -1) or right (1), centred on (_x, _y).
+function title_arrow(_x, _y, _dir, _col)
+{
+    draw_set_colour(make_colour_rgb(16, 26, 64));
+    draw_triangle(_x - _dir * 8, _y - 10, _x - _dir * 8, _y + 10, _x + _dir * 10, _y, false);
+    draw_set_colour(_col);
+    draw_triangle(_x - _dir * 6, _y - 7, _x - _dir * 6, _y + 7, _x + _dir * 7, _y, false);
+    draw_set_colour(c_white);
+}

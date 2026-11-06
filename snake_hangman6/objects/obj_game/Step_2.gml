@@ -1,36 +1,45 @@
-/// End Step: the camera follows the snake (or pans on the title screen), then the
-/// background layers move at their own speeds for the parallax effect.
+/// End Step: the cameras. During play each snake has its own camera (with two snakes, the
+/// window splits into a top and a bottom view); otherwise one camera pans along the level.
+/// The parallax layers are placed per view by the sky layer's begin script.
 
-var _vw = 640;
-var _vh = 360;
-var _tx = cam_x;
-var _ty = cam_y;
-if ((state == "play" || state == "paused" || state == "clear") && instance_exists(obj_player))
+var _playing = (state == "play" || state == "paused" || state == "clear") && array_length(pl) > 0;
+set_split(_playing && array_length(pl) == 2);
+
+if (_playing)
 {
-    _tx = obj_player.x - _vw / 2 + obj_player.facing * 70;
-    _ty = obj_player.y - _vh / 2 - 20;
-    cam_x = lerp(cam_x, _tx, 0.1);
-    cam_y = lerp(cam_y, _ty, 0.12);
+    var _vw = split_on ? SPLIT_VIEW_W : 640;
+    var _vh = split_on ? SPLIT_VIEW_H : 360;
+    for (var _k = 0; _k < array_length(pl); _k++)
+    {
+        var _p = pl[_k];
+        // A snake that is out watches the other one.
+        var _who = instance_exists(_p.inst) ? _p.inst : noone;
+        if (_who == noone)
+        {
+            var _other = any_player_in();
+            if (!is_undefined(_other) && instance_exists(_other.inst)) _who = _other.inst;
+        }
+        if (_who != noone)
+        {
+            var _tx = _who.x - _vw / 2 + _who.facing * 70;
+            var _ty = _who.y - _vh / 2 - 20;
+            _p.cam_x = cam_snap ? _tx : lerp(_p.cam_x, _tx, 0.1);
+            _p.cam_y = cam_snap ? _ty : lerp(_p.cam_y, _ty, 0.12);
+        }
+        _p.cam_x = clamp(_p.cam_x, 0, lvl_w * TILE - _vw);
+        _p.cam_y = clamp(_p.cam_y, 0, lvl_h * TILE - _vh);
+        camera_set_view_pos(view_camera[_k], round(_p.cam_x), round(_p.cam_y));
+    }
+    cam_snap = false;
 }
 else
 {
     // Title, credits, game over: drift along the level and bounce back at its end.
-    var _span = lvl_w * TILE - _vw;
+    var _span = lvl_w * TILE - 640;
     var _t = (title_pan mod (_span * 2));
     cam_x = (_t < _span) ? _t : _span * 2 - _t;
-    cam_y = lvl_h * TILE - _vh;
-}
-cam_x = clamp(cam_x, 0, lvl_w * TILE - _vw);
-cam_y = clamp(cam_y, 0, lvl_h * TILE - _vh);
-camera_set_view_pos(view_camera[0], round(cam_x), round(cam_y));
-
-// Parallax: the further away a layer is, the more it moves along with the camera.
-if (variable_instance_exists(id, "bg_layers"))
-{
-    layer_x(bg_layers.Mountains, cam_x * 0.82);
-    layer_y(bg_layers.Mountains, cam_y * 0.85 + 70);
-    layer_x(bg_layers.Clouds, cam_x * 0.9 - frame * 0.15);
-    layer_y(bg_layers.Clouds, cam_y * 0.92 + 8);
-    layer_x(bg_layers.Hills, cam_x * 0.6);
-    layer_y(bg_layers.Hills, cam_y * 0.75 + 190);
+    cam_y = lvl_h * TILE - 360;
+    cam_x = clamp(cam_x, 0, lvl_w * TILE - 640);
+    cam_y = clamp(cam_y, 0, lvl_h * TILE - 360);
+    camera_set_view_pos(view_camera[0], round(cam_x), round(cam_y));
 }

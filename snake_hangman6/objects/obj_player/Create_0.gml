@@ -13,7 +13,9 @@ drop_through = false;
 coyote = 0;             // frames left to jump after running off a ledge
 jump_buffer = 0;        // frames a jump press is remembered before landing
 copter = false;         // tail-spin glide (green snake)
-skin = obj_game.snakes[obj_game.character];   // sprites and power of the chosen snake
+// pid (0 or 1) is set by instance_create_layer before this runs.
+stats = obj_game.pl[pid];   // this snake's score, lives, hearts, misses and checkpoint
+skin = stats.skin;          // sprites and power of this snake
 air_jump_ready = false; // red snake: the second jump is still available in this jump
 boost_t = 0;            // frames left in a boost (C); only a boost hurts creatures
 boost_cd = 0;           // short wait after a boost before the next one
@@ -94,7 +96,7 @@ take_hit = function(_dir = -facing)
     boost_t = 0;
     tongue_t = 0;
     tongue_len = 0;
-    obj_game.hurt_player();
+    obj_game.hurt_player(id);
 };
 
 /// Breaks the cracked block at tile (_tx, _ty) and re-tiles its neighbours.
@@ -113,5 +115,5 @@ smash = function(_tx, _ty)
     }
     part_particles_create(_g.ps, _tx * TILE + 16, _ty * TILE + 16, _g.pt_rock, 14);
     _g.play_sfx(_g.sfx.smash);
-    _g.add_score(50, _tx * TILE + 16, _ty * TILE);
+    _g.add_score(50, _tx * TILE + 16, _ty * TILE, stats);
 };

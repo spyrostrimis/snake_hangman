@@ -4,7 +4,8 @@ if (obj_game.state != "play") exit;
 if (hurt_t > 0) hurt_t--;
 if (!active)
 {
-    if (instance_exists(obj_player) && abs(obj_player.x - x) < 300 && abs(obj_player.y - y) < 200)
+    var _p = instance_nearest(x, y, obj_player);
+    if (_p != noone && abs(_p.x - x) < 300 && abs(_p.y - y) < 200)
     {
         active = true;
         obj_game.boss_start(id);

@@ -51,7 +51,8 @@ switch (state)
         image_index = 2;
         if (timer <= 0)
         {
-            var _d = instance_exists(obj_player) ? obj_player.x - x : facing * 200;
+            var _target = instance_nearest(x, y, obj_player);
+            var _d = (_target != noone) ? _target.x - x : facing * 200;
             shoot(spr_cheese, x + facing * 20, y - 30, clamp(_d / 45, -5, 5), -7, 0.32);
             obj_game.play_sfx(obj_game.sfx.throw_);
             throws--;

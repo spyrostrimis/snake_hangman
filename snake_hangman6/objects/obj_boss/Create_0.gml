@@ -17,7 +17,7 @@ arena_x2 = x + 160;
 gravity_pull = 0.45;
 
 /// Each hit takes _dmg health; after the last one the boss bursts and drops its letter.
-kill = function(_dmg = 1)
+kill = function(_dmg = 1, _by = noone)
 {
     if (!active || hurt_t > 0) return;
     var _g = obj_game;
@@ -29,7 +29,7 @@ kill = function(_dmg = 1)
     {
         _g.burst(x, y - 10, make_colour_rgb(255, 120, 80), 40);
         _g.burst(x, y - 10, make_colour_rgb(120, 255, 140), 30);
-        _g.add_score(points, x, y - 50);
+        _g.add_score(points, x, y - 50, stats_of(_by));
         // The letter appears at the snake's head height, easy to grab.
         var _l = instance_create_layer(x, y + 12, "Instances", obj_letter);
         _l.ch = ch;
@@ -49,10 +49,11 @@ shoot = function(_spr, _x, _y, _vx, _vy, _grav)
     return _h;
 };
 
-/// Faces the snake; returns the horizontal distance to it.
+/// Faces the nearest snake; returns the horizontal distance to it.
 face_player = function()
 {
-    if (!instance_exists(obj_player)) return 9999;
-    facing = (obj_player.x >= x) ? 1 : -1;
-    return abs(obj_player.x - x);
+    var _p = instance_nearest(x, y, obj_player);
+    if (_p == noone) return 9999;
+    facing = (_p.x >= x) ? 1 : -1;
+    return abs(_p.x - x);
 };

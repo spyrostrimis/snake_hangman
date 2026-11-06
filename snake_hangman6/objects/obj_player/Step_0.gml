@@ -1,18 +1,19 @@
-/// Controls: arrows / A D to move, Z / Space / Up to jump (green: hold in the air to tail-spin,
-/// red: jump again in the air), X / J to lash the tongue, hold Shift to roll fast, C to boost
-/// (green rockets up, red dashes ahead), Down + jump to drop through logs.
+/// Moves, jumps (green: hold in the air to tail-spin, red: jump again in the air), lashes the
+/// tongue, rolls, boosts (green rockets up, red dashes ahead) and drops through logs.
+/// The keys depend on the player: see read_controls() in scr_util.
 
 var _g = obj_game;
 if (_g.state != "play") exit;
 
-var _left  = keyboard_check(vk_left)  || keyboard_check(ord("A"));
-var _right = keyboard_check(vk_right) || keyboard_check(ord("D"));
-var _down  = keyboard_check(vk_down)  || keyboard_check(ord("S"));
-var _jump_pressed = keyboard_check_pressed(ord("Z")) || keyboard_check_pressed(vk_space) || keyboard_check_pressed(vk_up) || keyboard_check_pressed(ord("W"));
-var _jump_held    = keyboard_check(ord("Z")) || keyboard_check(vk_space) || keyboard_check(vk_up) || keyboard_check(ord("W"));
-var _tongue = keyboard_check_pressed(ord("X")) || keyboard_check_pressed(ord("J"));
-var _roll_held = keyboard_check(vk_shift);
-var _boost_key = keyboard_check_pressed(ord("C"));
+var _in = read_controls(pid, _g.players_n);
+var _left  = _in.left;
+var _right = _in.right;
+var _down  = _in.down;
+var _jump_pressed = _in.jump_pressed;
+var _jump_held    = _in.jump_held;
+var _tongue = _in.tongue;
+var _roll_held = _in.roll_held;
+var _boost_key = _in.boost;
 
 if (invuln > 0) invuln--;
 if (gulp_t > 0) gulp_t--;
@@ -138,7 +139,7 @@ if (ball && hit_wall != 0)
 // The level's bottom is a bottomless pit.
 if (y > _g.lvl_h * TILE + 40)
 {
-    _g.player_died();
+    _g.player_died(id);
     exit;
 }
 if (touching_spikes() && invuln == 0)
@@ -164,8 +165,8 @@ if (tongue_t > 0)
     if (tongue_t <= 11)
     {
         // Anything the tongue touches: creatures are knocked out, items are pulled in.
-        with (obj_enemy) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < hh + 4) kill(1);
-        with (obj_pickup) if (!grabbed && point_segment_distance(x, y, _mx, _my, _tip, _my) < 16) { grabbed = true; _g.play_sfx(_g.sfx.slurp); }
+        with (obj_enemy) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < hh + 4) kill(1, other.id);
+        with (obj_pickup) if (!grabbed && point_segment_distance(x, y, _mx, _my, _tip, _my) < 16) { grabbed = true; grabber = other.id; _g.play_sfx(_g.sfx.slurp); }
         // The tongue also swats a boss's cheese and feathers out of the air.
         with (obj_hazard) if (point_segment_distance(x, y, _mx, _my, _tip, _my) < 12) { _g.burst(x, y, c_white, 6); instance_destroy(); }
     }
@@ -180,7 +181,7 @@ with (obj_enemy)
         if (other.boost_t > 0)
         {
             // Only a boost knocks creatures out.
-            kill(2);
+            kill(2, other.id);
             // A boss is too big to boost through: the ball bounces off it and the boost ends.
             if (_is_boss && instance_exists(id))
             {
@@ -193,7 +194,7 @@ with (obj_enemy)
         // A plain roll can't stomp: rolling into a creature always hurts the snake.
         else if (!other.ball && other.vy > 1.5 && other.y < y - 4)
         {
-            kill(2);
+            kill(2, other.id);
             other.vy = _is_boss ? -10 : -7;
         }
         else if (other.invuln == 0 && !(_is_boss && hurt_t > 30)) with (other) take_hit(sign(x - other.x));
@@ -201,7 +202,7 @@ with (obj_enemy)
 }
 
 // ---------- Items, springs, the checkpoint and the door ----------
-with (obj_pickup) if (!grabbed && abs(x - other.x) < 18 && abs(y - other.y) < 20) collect_now();
+with (obj_pickup) if (!grabbed && abs(x - other.x) < 18 && abs(y - other.y) < 20) collect_now(other.id);
 with (obj_spring)
 {
     if (other.vy > 0 && abs(x - other.x) < 18 && other.y + other.hh >= y - 26 && other.y + other.hh <= y - 4)
@@ -213,14 +214,15 @@ with (obj_spring)
 }
 with (obj_flag)
 {
-    if (!reached && abs(x - other.x) < 20 && abs((y - 24) - other.y) < 30)
+    // Each snake has its own checkpoint: the last flag it touched.
+    if (!reached[other.pid] && abs(x - other.x) < 20 && abs((y - 24) - other.y) < 30)
     {
-        reached = true;
+        reached[other.pid] = true;
         image_index = 1;
-        _g.checkpoint_x = x;
-        _g.checkpoint_y = y - 12;
+        other.stats.checkpoint_x = x;
+        other.stats.checkpoint_y = y - 12;
         _g.play_sfx(_g.sfx.flag);
-        _g.say("CHECKPOINT!", 90);
+        _g.say("CHECKPOINT!", 90, other.stats);
     }
 }
 with (obj_door)
@@ -232,7 +234,7 @@ with (obj_door)
         {
             hint_cooldown = 150;
             var _todo = array_length(word_hidden_letters(_g.word, _g.guessed));
-            _g.say("LOCKED! " + string(_todo) + " LETTER" + (_todo == 1 ? "" : "S") + " TO GO", 120);
+            _g.say("LOCKED! " + string(_todo) + " LETTER" + (_todo == 1 ? "" : "S") + " TO GO", 120, other.stats);
         }
     }
 }

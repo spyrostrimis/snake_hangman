@@ -47,6 +47,8 @@ for (var _k = _n; _k >= 1; _k--)
 // Head (facing left or right), with a little bob while running.
 var _bob = (on_ground && abs(vx) > 0.5) ? sin(_g.frame * 0.4) : 0;
 draw_sprite_ext(skin.head, image_index, x, y - 3 + _bob, facing, 1, 0, c_white, 1);
+// With two players, a small P1 / P2 tag above the head.
+if (_g.players_n == 2) hud_text(x, y - 40, "P" + string(pid + 1), 0.3, fa_center, skin.colour);
 
 // Tongue: a long pink ribbon with a forked tip.
 if (tongue_len > 0)

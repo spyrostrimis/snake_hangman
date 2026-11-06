@@ -79,17 +79,41 @@ burst = function(_x, _y, _col, _n) { part_particles_create_colour(ps, _x, _y, pt
 state      = "title";   // title | credits | play | paused | clear | gameover | victory
 levels     = level_list();
 level_index = 0;
-score_now  = 0;
-lives      = 3;
-hearts     = 5;
-gems       = 0;
 words      = game_word_list();
 last_word  = "";
-messages   = [];        // { text, life }
 popups     = [];        // world-space floating scores { x, y, text, life }
 frame      = 0;
-tally      = { bonus: 0, shown: 0, gems: 0, time: 0 };
 level_time = 0;
+
+// ---------- Players ----------
+// One or two snakes. Everything that belongs to one snake (score, lives, hearts, misses,
+// checkpoint, camera, messages) lives in its struct in pl; the word is shared.
+players_n = 1;          // chosen on the title screen
+pl = [];                // built by new_game
+
+make_player = function(_pid, _snake)
+{
+    return
+    {
+        pid: _pid,
+        skin: snakes[_snake],
+        score_now: 0,
+        lives_left: 3,
+        hearts: 5,
+        gems: 0,
+        misses: 0,
+        miss_letters: "",
+        checkpoint_x: 0,
+        checkpoint_y: 0,
+        out: false,         // out of lives: watches the other snake until the next level
+        inst: noone,        // its obj_player
+        cam_x: 0,
+        cam_y: 0,
+        messages: [],       // { text, life }
+        bonus: 0,           // level-clear tally
+        shown: 0,
+    };
+};
 
 // ---------- Level state ----------
 boss = noone;
@@ -98,18 +122,52 @@ grid = [];
 lvl_w = 1;
 lvl_h = 1;
 word = "";
-guessed = "";
-misses = 0;
-miss_letters = "";
-checkpoint_x = 0;
-checkpoint_y = 0;
+guessed = "";           // shared: every letter either snake has picked up
 start_x = 0;
 start_y = 0;
 tilemap = -1;
 layers_made = [];
-cam_x = 0;
+cam_x = 0;              // the single view's camera (title screen, game over...)
 cam_y = 0;
+cam_snap = false;       // true: cameras jump straight to their snakes (a new level)
 title_pan = 0;
+
+// ---------- Views: one full-window view, or two halves (top / bottom) ----------
+split_on = false;
+split_cam = camera_create_view(0, 0, SPLIT_VIEW_W, SPLIT_VIEW_H);
+
+/// Switches between one view (640 x 360 in the whole window) and two views, one per snake.
+set_split = function(_on)
+{
+    if (_on == split_on) return;
+    split_on = _on;
+    if (_on)
+    {
+        camera_set_view_size(view_camera[0], SPLIT_VIEW_W, SPLIT_VIEW_H);
+        view_camera[1] = split_cam;
+        view_visible[1] = true;
+        view_xport[0] = 0; view_yport[0] = 0;   view_wport[0] = 1280; view_hport[0] = 360;
+        view_xport[1] = 0; view_yport[1] = 360; view_wport[1] = 1280; view_hport[1] = 360;
+    }
+    else
+    {
+        camera_set_view_size(view_camera[0], 640, 360);
+        view_visible[1] = false;
+        view_xport[0] = 0; view_yport[0] = 0; view_wport[0] = 1280; view_hport[0] = 720;
+    }
+};
+
+/// Moves the parallax background layers for a camera at (_cx, _cy). Called for each view.
+place_parallax = function(_cx, _cy)
+{
+    if (!variable_instance_exists(id, "bg_layers")) return;
+    layer_x(bg_layers.Mountains, _cx * 0.82);
+    layer_y(bg_layers.Mountains, _cy * 0.85 + 70);
+    layer_x(bg_layers.Clouds, _cx * 0.9 - frame * 0.15);
+    layer_y(bg_layers.Clouds, _cy * 0.92 + 8);
+    layer_x(bg_layers.Hills, _cx * 0.6);
+    layer_y(bg_layers.Hills, _cy * 0.75 + 190);
+};
 
 // ---------- Playable snakes (chosen on the title screen with Left / Right) ----------
 // Green glides with a spinning tail; Red can jump a second time in the air instead.
@@ -123,11 +181,20 @@ snakes =
       tail: sprite_swap_red_green(spr_snake_tail), ball: sprite_swap_red_green(spr_snake_ball),
       colour: make_colour_rgb(255, 110, 90) },
 ];
-character = 0;
+character = 0;         // player 1's snake; with two players, player 2 gets the other one
 
-say = function(_text, _frames = 150)
+/// Shows a message in the middle of a snake's screen; without _p, on every snake's screen.
+say = function(_text, _frames = 150, _p = undefined)
 {
-    array_push(messages, { text: _text, life: _frames });
+    for (var _k = 0; _k < array_length(pl); _k++)
+    {
+        if (is_undefined(_p) || pl[_k] == _p) array_push(pl[_k].messages, { text: _text, life: _frames });
+    }
+};
+
+clear_messages = function()
+{
+    for (var _k = 0; _k < array_length(pl); _k++) pl[_k].messages = [];
 };
 
 add_popup = function(_x, _y, _text)
@@ -135,10 +202,18 @@ add_popup = function(_x, _y, _text)
     array_push(popups, { x: _x, y: _y, text: _text, life: 50 });
 };
 
-add_score = function(_n, _x = undefined, _y = undefined)
+/// Adds _n points to snake _p (a struct from pl), with a floating score at (_x, _y).
+add_score = function(_n, _x = undefined, _y = undefined, _p = undefined)
 {
-    score_now += _n;
+    if (!is_undefined(_p)) _p.score_now += _n;
     if (!is_undefined(_x)) add_popup(_x, _y, string(_n));
+};
+
+/// The first snake still playing, or undefined.
+any_player_in = function()
+{
+    for (var _k = 0; _k < array_length(pl); _k++) if (!pl[_k].out) return pl[_k];
+    return undefined;
 };
 
 /// Removes everything a level created: instances, layers, tilemap, particles.
@@ -201,6 +276,8 @@ load_level = function(_i, _with_player)
     var _sky_layer = layer_create(1000, "Sky");
     array_push(layers_made, _sky_layer);
     instance_create_layer(0, 0, _sky_layer, obj_sky);
+    // The sky draws first in every view: place the parallax layers for that view's camera.
+    layer_script_begin(_sky_layer, parallax_for_view);
     var _defs = [["Mountains", 900, spr_bg_mountains], ["Clouds", 950, spr_bg_clouds], ["Hills", 800, spr_bg_hills]];
     bg_layers = {};
     for (var _k = 0; _k < 3; _k++)
@@ -245,8 +322,6 @@ load_level = function(_i, _with_player)
     word = _word;
     last_word = _word;
     guessed = "";
-    misses = 0;
-    miss_letters = "";
     level_time = 0;
 
     var _letter_spots = [];
@@ -308,23 +383,31 @@ load_level = function(_i, _with_player)
         }
     }
 
-    checkpoint_x = start_x;
-    checkpoint_y = start_y;
     if (_with_player)
     {
-        instance_create_layer(start_x, start_y, "Instances", obj_player);
-        hearts = 5;
+        // Each snake starts a level with full hearts and no misses; player 2 a step behind.
+        for (var _k = 0; _k < array_length(pl); _k++)
+        {
+            var _p = pl[_k];
+            _p.hearts = 5;
+            _p.misses = 0;
+            _p.miss_letters = "";
+            _p.checkpoint_x = start_x - _k * 26;
+            _p.checkpoint_y = start_y;
+            _p.inst = _p.out ? noone : instance_create_layer(_p.checkpoint_x, start_y, "Instances", obj_player, { pid: _k });
+        }
     }
     cam_x = max(0, start_x - 200);
     cam_y = max(0, lvl_h * TILE - 360);
+    cam_snap = true;
     play_music(_with_player ? lvl.music : "music_02.ogg");
 };
 
 new_game = function(_first_level = 0)
 {
-    score_now = 0;
-    lives = 3;
-    gems = 0;
+    // Player 1 has the snake chosen on the title screen; player 2 the other one.
+    pl = [];
+    for (var _k = 0; _k < players_n; _k++) array_push(pl, make_player(_k, (_k == 0) ? character : 1 - character));
     level_index = _first_level;
     start_level();
 };
@@ -344,23 +427,31 @@ skip_level = function()
 
 start_level = function()
 {
+    // A snake that ran out of lives comes back for the new level with one life.
+    for (var _k = 0; _k < array_length(pl); _k++)
+    {
+        if (pl[_k].out) { pl[_k].out = false; pl[_k].lives_left = 1; }
+    }
     load_level(level_index, true);
     state = "play";
-    messages = [];
+    clear_messages();
     say(lvl.name, 180);
     say("FIND THE LETTERS. OPEN THE DOOR.", 180);
 };
 
 /// The hangman rule: a right letter opens part of the word, a wrong one is a miss.
-on_letter = function(_ch, _x, _y)
+/// The hangman rule: a right letter opens part of the word for both snakes; a wrong one
+/// is a miss for the snake _by (an obj_player) that picked it up.
+on_letter = function(_ch, _x, _y, _by)
 {
+    var _p = stats_of(_by);
     guessed += _ch;
     if (word_has_letter(word, _ch))
     {
-        add_score(500 * word_count_letter(word, _ch), _x, _y - 20);
+        add_score(500 * word_count_letter(word, _ch), _x, _y - 20, _p);
         burst(_x, _y, make_colour_rgb(80, 255, 120), 18);
         play_sfx(sfx.right);
-        with (obj_player) body_len = min(14, body_len + 1);
+        if (instance_exists(_by)) with (_by) body_len = min(14, body_len + 1);
         if (word_is_solved(word, guessed))
         {
             with (obj_door) open = true;
@@ -371,65 +462,87 @@ on_letter = function(_ch, _x, _y)
     }
     else
     {
-        misses++;
-        miss_letters += _ch;
+        _p.misses++;
+        _p.miss_letters += _ch;
         burst(_x, _y, make_colour_rgb(255, 60, 90), 18);
         play_sfx(sfx.wrong);
-        if (misses >= MAX_MISSES)
+        if (_p.misses >= MAX_MISSES)
         {
-            say("SIX MISSES! THE WORD GOT AWAY", 160);
-            player_died();
+            say("SIX MISSES! THE WORD GOT AWAY", 160, _p);
+            player_died(_by);
         }
-        else say("NO " + _ch + " IN THIS WORD", 100);
+        else say("NO " + _ch + " IN THIS WORD", 100, _p);
     }
 };
 
-/// Loses a heart; at zero hearts, a life.
-hurt_player = function()
+/// Snake _inst loses a heart; at zero hearts, a life.
+hurt_player = function(_inst)
 {
-    hearts--;
+    var _p = _inst.stats;
+    _p.hearts--;
     play_sfx(sfx.hurt);
-    if (hearts <= 0) player_died();
+    if (_p.hearts <= 0) player_died(_inst);
 };
 
-player_died = function()
+/// Snake _inst loses a life and goes back to its own checkpoint. Out of lives, it is out
+/// until the next level; when no snake is left, the game is over.
+player_died = function(_inst)
 {
+    if (!instance_exists(_inst)) return;
+    var _p = _inst.stats;
     play_sfx(sfx.die);
-    lives--;
-    misses = 0;
-    if (lives <= 0)
+    _p.lives_left--;
+    _p.misses = 0;
+    _p.miss_letters = "";
+    if (_p.lives_left <= 0)
     {
-        with (obj_player) instance_destroy();
-        state = "gameover";
-        stop_music();
-        return;
+        _p.out = true;
+        _p.inst = noone;
+        instance_destroy(_inst);
+        if (is_undefined(any_player_in()))
+        {
+            state = "gameover";
+            stop_music();
+            return;
+        }
+        say(_p.skin.name + " IS OUT! BACK NEXT LEVEL", 180);
     }
-    hearts = 5;
-    // A boss goes back to sleep (keeping its damage) until the snake returns.
-    if (instance_exists(boss))
+    else
     {
-        boss.active = false;
-        play_music(lvl.music);
+        _p.hearts = 5;
+        with (_inst)
+        {
+            x = _p.checkpoint_x;
+            y = _p.checkpoint_y;
+            vx = 0;
+            vy = 0;
+            invuln = 120;
+            ball = false;
+            boost_t = 0;
+            reset_body();
+        }
+        say("OUCH! " + string(_p.lives_left) + " LIVES LEFT", 120, _p);
     }
-    with (obj_hazard) instance_destroy();
-    with (obj_player)
+    // A boss goes back to sleep (keeping its damage) until a snake returns.
+    if (instance_exists(boss) && boss.active)
     {
-        x = other.checkpoint_x;
-        y = other.checkpoint_y;
-        vx = 0;
-        vy = 0;
-        invuln = 120;
-        ball = false;
-        reset_body();
+        var _b = boss;
+        var _near = false;
+        with (obj_player) if (id != _inst && abs(x - _b.x) < 300 && abs(y - _b.y) < 200) _near = true;
+        if (!_near)
+        {
+            boss.active = false;
+            with (obj_hazard) instance_destroy();
+            play_music(lvl.music);
+        }
     }
-    say("OUCH! " + string(lives) + " LIVES LEFT", 120);
 };
 
-/// A boss has noticed the snake: its own music and a warning.
+/// A boss has noticed a snake: its own music and a warning.
 boss_start = function(_b)
 {
     play_music(_b.music);
-    messages = [];
+    clear_messages();
     say("WATCH OUT! IT'S " + _b.boss_name + "!", 150);
     say("IT HOLDS A LETTER OF THE WORD", 120);
 };
@@ -438,14 +551,22 @@ boss_defeated = function(_name)
 {
     play_sfx(sfx.boss_win);
     play_music(lvl.music);
-    messages = [];
+    clear_messages();
     say(_name + " IS BEATEN! GRAB THE LETTER!", 180);
 };
 
+/// A snake went through the open door: the level is done for both. Each snake still in
+/// gets its own bonus: letters, time, and 500 for every miss it saved.
 level_complete = function()
 {
     state = "clear";
-    tally = { bonus: 1000 * string_length(word) + max(0, 300 - floor(level_time / 60)) * 10 + (MAX_MISSES - misses) * 500, shown: 0, misses: misses };
+    var _base = 1000 * string_length(word) + max(0, 300 - floor(level_time / 60)) * 10;
+    for (var _k = 0; _k < array_length(pl); _k++)
+    {
+        var _p = pl[_k];
+        _p.bonus = _p.out ? 0 : _base + (MAX_MISSES - _p.misses) * 500;
+        _p.shown = 0;
+    }
     play_music("music_05.ogg");
     with (obj_player) { vx = 0; vy = 0; }
 };

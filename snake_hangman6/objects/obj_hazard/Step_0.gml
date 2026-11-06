@@ -15,13 +15,12 @@ if (life <= 0 || is_blocking(_t) || y > _g.lvl_h * TILE)
     instance_destroy();
     exit;
 }
-if (instance_exists(obj_player))
+// The first snake it touches.
+var _hit = noone;
+with (obj_player) if (_hit == noone && abs(x - other.x) < hw + 7 && abs(y - other.y) < hh + 7) _hit = id;
+if (_hit != noone)
 {
-    var _p = obj_player;
-    if (abs(_p.x - x) < _p.hw + 7 && abs(_p.y - y) < _p.hh + 7)
-    {
-        if (_p.ball) _g.burst(x, y, c_white, 6);
-        else with (_p) take_hit(sign(x - other.x));
-        instance_destroy();
-    }
+    if (_hit.ball) _g.burst(x, y, c_white, 6);
+    else with (_hit) take_hit(sign(x - other.x));
+    instance_destroy();
 }
