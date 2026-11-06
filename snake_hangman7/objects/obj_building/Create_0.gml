@@ -1,0 +1,22 @@
+/// A structure. team, btype, cx, cy and built are set by place_building before this runs.
+def = global.bdef[$ btype];
+w = def.w;
+h = def.h;
+hp = def.hp;
+maxhp = def.hp;
+armor = "bld";
+anim = built ? 1 : 0;
+tface = 270;
+reload = 0;
+think = irandom(10);
+target = noone;
+repairing = false;
+flash = 0;
+docked = noone;
+dock_x = x + 2 * CELL + HALF;
+dock_y = y + CELL + HALF;
+dish = random(16);
+wall_mask = 0;
+smoke_t = irandom(20);
+mask_index = -1;
+if (built) building_complete();

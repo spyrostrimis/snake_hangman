@@ -1,0 +1,12 @@
+{
+  "$GMShader":"",
+  "%Name":"sh_team",
+  "name":"sh_team",
+  "parent":{
+    "name":"snake_hangman7",
+    "path":"snake_hangman7.yyp",
+  },
+  "resourceType":"GMShader",
+  "resourceVersion":"2.0",
+  "type":1,
+}
