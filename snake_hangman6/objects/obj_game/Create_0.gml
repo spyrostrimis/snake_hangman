@@ -76,7 +76,7 @@ part_type_life(pt_rock, 30, 50);
 burst = function(_x, _y, _col, _n) { part_particles_create_colour(ps, _x, _y, pt_spark, _col, _n); };
 
 // ---------- Run state ----------
-state      = "title";   // title | credits | play | paused | clear | gameover | victory
+state      = "title";   // title | credits | online | play | paused | clear | gameover | victory
 levels     = level_list();
 level_index = 0;
 words      = game_word_list();
@@ -570,6 +570,12 @@ level_complete = function()
     play_music("music_05.ogg");
     with (obj_player) { vx = 0; vy = 0; }
 };
+
+// ---------- Online (step 2: the connection test screen, O on the title) ----------
+net = instance_create_layer(0, 0, "Instances", obj_net);
+online_mode = "menu";   // menu | type_ip | type | room
+online_ip = "";
+online_code = "";
 
 // Start on the title screen, over level 1's scenery.
 load_level(0, false);

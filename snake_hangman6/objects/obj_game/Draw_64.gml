@@ -26,10 +26,10 @@ for (var _v = 0; _v < _views; _v++)
     }
 }
 
-if (state == "title" || state == "credits")
+if (state == "title" || state == "credits" || state == "online")
 {
     draw_set_colour(c_black);
-    draw_set_alpha(0.35);
+    draw_set_alpha((state == "online") ? 0.6 : 0.35);
     draw_rectangle(0, 0, 640, 360, false);
     draw_set_alpha(1);
 }
@@ -81,9 +81,63 @@ switch (state)
             body_text(320, 271, "P2: Arrows move / jump / down   J tongue   hold K roll   L boost", _s2.colour, fa_center);
         }
         body_text(320, 286, "Gamepads: stick, A jump, X tongue, hold RB roll, B boost.  Grab the letters to open the door!", make_colour_rgb(255, 230, 140), fa_center);
-        body_text(320, 302, "Up / Down: players    C: credits    M: music on/off    P: pause", make_colour_rgb(190, 210, 255), fa_center);
+        body_text(320, 302, "Up / Down: players    O: online    C: credits    M: music on/off    P: pause", make_colour_rgb(190, 210, 255), fa_center);
         body_text(320, 317, "1-" + string(min(array_length(levels), 9)) + ": start at that level    N (in game): skip level", make_colour_rgb(190, 210, 255), fa_center);
         body_text(320, 334, "A tribute to the 90s PC platformers. Made with GameMaker.", make_colour_rgb(170, 190, 230), fa_center);
+        break;
+
+    case "online":
+        hud_text(320, 22, "ONLINE", 0.8, fa_center, make_colour_rgb(255, 200, 80));
+        body_text(320, 62, "Connection test: host or join a room, and see the link between the two PCs work.", make_colour_rgb(190, 210, 255), fa_center);
+        var _gold = make_colour_rgb(255, 230, 120);
+        switch (online_mode)
+        {
+            case "menu":
+                hud_text(320, 110, "H: HOST A ROOM", 0.5, fa_center, _gold);
+                hud_text(320, 145, "J: JOIN WITH A CODE", 0.5, fa_center, _gold);
+                hud_text(320, 180, "I: JOIN BY IP", 0.5, fa_center, _gold);
+                body_text(320, 216, "Join by IP is the fallback when the code doesn't connect: type the host's IP", c_white, fa_center);
+                body_text(320, 232, "(for example its Tailscale address), then the room code.", c_white, fa_center);
+                body_text(320, 300, "Esc: back", make_colour_rgb(190, 210, 255), fa_center);
+                break;
+
+            case "type_ip":
+                hud_text(320, 120, "HOST IP", 0.5, fa_center);
+                hud_text(320, 160, online_ip + (_blink ? "-" : " "), 0.7, fa_center, _gold);
+                body_text(320, 220, "Type the IP, then Enter.    Esc: back", c_white, fa_center);
+                break;
+
+            case "type":
+                hud_text(320, 120, "ROOM CODE", 0.5, fa_center);
+                var _shown = online_code;
+                while (string_length(_shown) < NET_CODE_LEN) _shown += "-";
+                hud_text(320, 158, _shown, 1, fa_center, _gold);
+                if (online_ip != "") body_text(320, 214, "Joining " + online_ip, c_white, fa_center);
+                body_text(320, 232, "Type the 5-character code your friend sees, then Enter.    Esc: back", c_white, fa_center);
+                break;
+
+            case "room":
+                var _n = net;
+                if (_n.role == "host")
+                {
+                    body_text(320, 92, "Your room code (copied to the clipboard):", c_white, fa_center);
+                    hud_text(320, 108, _n.code, 1.1, fa_center, _gold);
+                }
+                else hud_text(320, 108, "ROOM " + _n.code, 0.7, fa_center, _gold);
+                var _col = (_n.state == "connected") ? make_colour_rgb(140, 255, 140) : ((_n.state == "failed" || _n.state == "lost") ? make_colour_rgb(255, 130, 140) : c_white);
+                body_text(320, 168, _n.status, _col, fa_center);
+                if (_n.detail != "") body_text(320, 186, _n.detail, make_colour_rgb(255, 230, 140), fa_center);
+                if (_n.state == "connected")
+                {
+                    hud_text(320, 206, "PING " + ((_n.ping_ms < 0) ? "..." : string(round(_n.ping_ms)) + " MS"), 0.5, fa_center, make_colour_rgb(140, 255, 140));
+                    body_text(320, 236, "Linked over " + _n.link + " with " + _n.peer_ip + ":" + string(_n.peer_port), c_white, fa_center);
+                    body_text(320, 256, "Space: wave to your friend    You waved " + string(_n.waves_out) + "    Your friend waved " + string(_n.waves_in), _gold, fa_center);
+                }
+                var _me = (_n.pub_ip != "") ? _n.pub_ip + ":" + string(_n.pub_port) : "unknown";
+                body_text(320, 296, "Your internet address: " + _me + "    Local port: " + string(_n.lport), make_colour_rgb(170, 190, 230), fa_center);
+                body_text(320, 318, "Esc: leave the room", make_colour_rgb(190, 210, 255), fa_center);
+                break;
+        }
         break;
 
     case "credits":

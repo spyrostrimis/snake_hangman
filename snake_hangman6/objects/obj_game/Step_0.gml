@@ -21,7 +21,8 @@ for (var _i = array_length(popups) - 1; _i >= 0; _i--)
 
 var _enter = menu_confirm();
 var _pause = keyboard_check_pressed(ord("P")) || keyboard_check_pressed(vk_escape) || any_pad_pressed(gp_start);
-if (keyboard_check_pressed(ord("M")))
+var _typing = state == "online" && (online_mode == "type" || online_mode == "type_ip");
+if (keyboard_check_pressed(ord("M")) && !_typing)
 {
     sound_on = !sound_on;
     if (!sound_on) stop_music();
@@ -35,6 +36,7 @@ switch (state)
         title_pan += 0.6;
         if (_enter) { play_sfx(sfx.select); new_game(); }
         else if (keyboard_check_pressed(ord("C"))) { play_sfx(sfx.select); state = "credits"; }
+        else if (keyboard_check_pressed(ord("O"))) { play_sfx(sfx.select); state = "online"; online_mode = "menu"; }
         else if (keyboard_check_pressed(vk_up) || keyboard_check_pressed(vk_down) || keyboard_check_pressed(ord("W")) || keyboard_check_pressed(ord("S")))
         {
             // One or two players.
@@ -66,6 +68,57 @@ switch (state)
     case "credits":
         title_pan += 0.6;
         if (_enter || keyboard_check_pressed(vk_escape) || keyboard_check_pressed(ord("C"))) { play_sfx(sfx.select); state = "title"; }
+        break;
+
+    case "online":
+        // Step 2's connection test: host or join a room and see the link work.
+        title_pan += 0.6;
+        var _esc = keyboard_check_pressed(vk_escape);
+        switch (online_mode)
+        {
+            case "menu":
+                if (keyboard_check_pressed(ord("H")))
+                {
+                    play_sfx(sfx.select);
+                    net.host();
+                    clipboard_set_text(net.code);
+                    online_mode = "room";
+                }
+                else if (keyboard_check_pressed(ord("J"))) { play_sfx(sfx.select); online_ip = ""; keyboard_string = ""; online_mode = "type"; }
+                else if (keyboard_check_pressed(ord("I"))) { play_sfx(sfx.select); online_ip = ""; keyboard_string = ""; online_mode = "type_ip"; }
+                else if (_esc) { play_sfx(sfx.select); state = "title"; }
+                break;
+
+            case "type_ip":
+                var _t = "";
+                for (var _i = 1; _i <= string_length(keyboard_string) && string_length(_t) < 15; _i++)
+                {
+                    var _c = string_char_at(keyboard_string, _i);
+                    if (string_pos(_c, "0123456789.") > 0) _t += _c;
+                }
+                keyboard_string = _t;
+                online_ip = _t;
+                if (keyboard_check_pressed(vk_enter) && string_length(_t) >= 7) { play_sfx(sfx.select); keyboard_string = ""; online_mode = "type"; }
+                else if (_esc) { play_sfx(sfx.select); online_mode = "menu"; }
+                break;
+
+            case "type":
+                online_code = net_clean_code(keyboard_string);
+                keyboard_string = online_code;
+                if (keyboard_check_pressed(vk_enter) && string_length(online_code) == NET_CODE_LEN)
+                {
+                    play_sfx(sfx.select);
+                    if (online_ip != "") net.join_ip(online_ip, online_code); else net.join(online_code);
+                    online_mode = "room";
+                }
+                else if (_esc) { play_sfx(sfx.select); online_mode = "menu"; }
+                break;
+
+            case "room":
+                if (keyboard_check_pressed(vk_space) && net.state == "connected") { play_sfx(sfx.jump); net.send_wave(); }
+                if (_esc) { play_sfx(sfx.select); net.stop(); online_mode = "menu"; }
+                break;
+        }
         break;
 
     case "play":
